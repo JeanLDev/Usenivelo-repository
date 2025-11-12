@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ChevronLeft,
@@ -21,7 +21,7 @@ import EmailConfirmationAlert from "./EmailConfirmationAlert";
 import ModernSidebarLayout from "./layouts/ModernSidebarLayout";
 
 const DashboardLayout = ({ children }) => {
-  const { sidebarKey } = useDashboard();
+  const { sidebarKey, refreshSidebar } = useDashboard();
   const [runTutorial, setRunTutorial] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [menuItems, setMenuItems] = useState([]);
@@ -260,6 +260,7 @@ const DashboardLayout = ({ children }) => {
         menuItems={menuItems}
         steps={etapas}
         user={user}
+        refreshSidebar={refreshSidebar}
       />
 
       {/* Main Content */}

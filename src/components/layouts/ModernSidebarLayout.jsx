@@ -6,13 +6,13 @@ import LogoNivelo from "../../images/LogoNivelo.png";
 import {Button} from "@/components/ui/button"
 import { supabase } from "@/lib/customSupabaseClient";
 import {useToast} from "@/components/ui/use-toast"
-import { useDashboard } from '@/contexts/DashboardContext';
 
 export default function ModernSidebarLayout({
   company,
   menuItems = [],
   handleLogout,
   children,
+  refreshSidebar,
   steps,
 }) {
 
@@ -20,7 +20,6 @@ export default function ModernSidebarLayout({
   const navigate = useNavigate();
   const location = useLocation();
   const {toast} = useToast();
-  const { refreshSidebar } = useDashboard();
 
   const [selectedModule, setSelectedModule] = useState(null);
   const [collapsed, setCollapsed] = useState(false);
@@ -52,28 +51,7 @@ export default function ModernSidebarLayout({
   const [openCreateKanban, setOpenCreateKanban] = useState(false)
   const [newKanbanName, setNewKanbanName] = useState('')
 
-  const handleCreateSubModule = async () => {
-    if (!newSubModuleName.trim() || !selectedModule) return;
-    setLoading(true);
-    try {
-      await supabase
-        .from('submodules')
-        .insert([{
-          module_id: selectedModule.id,
-          name: newSubModuleName,
-          type: 'Customizado',
-          path: selectedModule.label != 'KanBan' ? `/admin/modules/${selectedModule.label}/sub/${newSubModuleName}`: `/admin/KanBan/${selectedModule.id}`
-        }]);
-      toast({ title: 'Submódulo criado', description: `"${newSubModuleName}" adicionado.` });
-      setNewSubModuleName('');
-      setCreateSubModuleModal(false);
-      fetchMenuItems(); // Atualiza a lista de módulos/submódulos
-    } catch (err) {
-      console.error(err);
-      toast({ title: 'Erro', description: err.message });
-    }
-    setLoading(false);
-  };
+  
 
 
   return (
@@ -223,6 +201,7 @@ export default function ModernSidebarLayout({
               <div className="flex items-center ">
                 {sub.userLogo && <img src={sub.userLogo} className="w-8 h-8 mr-2  border border-gray-300 rounded-full"/>}
                 <span className="truncate max-w-[200px]">{sub.label}</span>
+
               </div>
             </Link>
           );
@@ -239,66 +218,83 @@ export default function ModernSidebarLayout({
             className="w-full px-3 py-2 rounded border dark:border-gray-600 dark:bg-gray-700"
           />
           <Button
-            className="mt-2 px-4 py-2 text-white rounded w-full"
-            onClick={async () => {
-              const { data:dataUser, error: userError } = await supabase.auth.getUser();
-              
-              const user = dataUser?.user;
-        
-              if (userError || !user) return;
+  className="mt-2 px-4 py-2 text-white rounded w-full"
+  onClick={async () => {
+    const { data: dataUser, error: userError } = await supabase.auth.getUser();
+    const user = dataUser?.user;
+    if (userError || !user) return;
 
-              const { data: subm, error } = await supabase
-              .from('submodules')
-              .insert({
-                name: newKanbanName,
-                module_id: selectedModule.id,
-                type: 'Customizado',
-                share: false,
-                kanban: true,
-                path:`/admin/KanBan/`,
-                user_id: user.id
-              })
-              .select()
+    // 🔹 Cria o submódulo Kanban
+    const { data: subm, error } = await supabase
+      .from("submodules")
+      .insert({
+        name: newKanbanName,
+        module_id: selectedModule.id,
+        type: "Customizado",
+        share: false,
+        kanban: true,
+        path: `/admin/KanBan/`,
+        user_id: user.id,
+      })
+      .select();
 
-              const { data: inserted, error:errorSteps } = await supabase
-              .from("kanban_steps")
-              .insert([{ kanban_id: subm[0].id, name: 'Etapa 1', position: steps.length, user_id:user?.id }])
-              .select()
-              .single();
+    if (error || !subm?.length) {
+      console.error(error);
+      toast({ title: "Erro", description: "Não foi possível criar o Kanban" });
+      return;
+    }
 
-              const payload = {
-                step_id: inserted.id,
-                user_id: user.id,
-                move:true, 
-                view:true,
-                edit:true,
-                create:true,
-                delete:true
-              };
-              const { data, errorStep } = await supabase
-              .from("kanban_steps_permissions")
-              .insert(payload)
-              .select() // importante para receber o registro criado
-              .single(); // pega apenas um registro, não array
+    // 🔹 Cria etapa inicial
+    const { data: insertedStep, error: errorSteps } = await supabase
+      .from("kanban_steps")
+      .insert([
+        {
+          kanban_id: subm[0].id,
+          name: "Etapa 1",
+          position: steps.length,
+          user_id: user.id,
+        },
+      ])
+      .select()
+      .single();
 
-            if (error) {
-              console.error(error);
-              toast({ title: 'Erro', description: 'Não foi possível criar o Kanban' });
-              return;
-            }
+    if (errorSteps) {
+      console.error(errorSteps);
+      toast({ title: "Erro", description: "Não foi possível criar a etapa" });
+      return;
+    }
 
-            // Agora você tem o ID do submodule criado
-            const path = `/admin/KanBan/${subm.id}`;
+    // 🔹 Cria permissões padrão
+    await supabase.from("kanban_steps_permissions").insert({
+      step_id: insertedStep.id,
+      user_id: user.id,
+      move: true,
+      view: true,
+      edit: true,
+      create: true,
+      delete: true,
+    });
 
-            // Opcional: atualizar sidebar ou redirecionar
-            toast({ title: 'Kanban criado!', description: newKanbanName });
-            fetchModules(); // atualizar menu
-            navigate(path);
-            refreshSidebar()
-            }}
-          >
-            Criar
-          </Button>
+    // 🔹 Atualiza lista local de submódulos (sem recarregar tudo)
+    setTimeout(()=> {
+      setSelectedModule((prev) => ({
+        ...prev,
+        submodules: [...(prev.submodules || []), subm[0]],
+      }));
+      handleCloseSubSidebar()
+    },2000)
+    
+    // 🔹 Feedback e navegação
+    toast({ title: "Kanban criado!", description: newKanbanName });
+    setOpenCreateKanban(false);
+    setNewKanbanName("");
+    refreshSidebar()
+    navigate(`/admin/KanBan/${subm[0].id}`);
+  }}
+>
+  Criar
+</Button>
+
         </div>
       )}
 
