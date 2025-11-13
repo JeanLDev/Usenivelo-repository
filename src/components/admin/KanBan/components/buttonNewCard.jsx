@@ -21,13 +21,14 @@ export function SplitButton({ mainLabel, onMainClick, options, onSelect }) {
       {/* Botão principal com estilo gradiente */}
       <button
         onClick={onMainClick}
-        className="bg-gradient-to-r from-purple-500 to-purple-700 text-white px-2 py-1 rounded-l-lg font-medium shadow-md hover:from-purple-600 hover:to-purple-800 transition-all duration-200"
+        className={`bg-gradient-to-r from-purple-500 to-purple-700 text-white px-2 py-1 rounded-l-lg 
+          ${!options.length > 0 &&  "rounded-r-lg"} font-medium shadow-md hover:from-purple-600 hover:to-purple-800 transition-all duration-200`}
       >
         {mainLabel}
       </button>
 
       {/* Botão de dropdown */}
-      <button
+      {options.length > 0 && <button
         onClick={() => setOpen(!open)}
         className="bg-gradient-to-r from-purple-500 to-purple-700 text-white px-1 py-1 rounded-r-lg border-l border-white/20 hover:from-purple-600 hover:to-purple-800 transition-all duration-200 shadow-md flex items-center justify-center"
       >
@@ -36,7 +37,7 @@ export function SplitButton({ mainLabel, onMainClick, options, onSelect }) {
             open ? "rotate-180" : ""
           }`}
         />
-      </button>
+      </button>}
 
       {/* Menu dropdown */}
       {open && (

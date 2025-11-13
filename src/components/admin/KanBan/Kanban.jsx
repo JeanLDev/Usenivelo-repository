@@ -58,7 +58,7 @@ import { SplitButton } from "./components/buttonNewCard";
     // ------------------- FETCH -------------------
     const fetchData = async () => {
     try {
-    
+      setLoading(true)
       // Usuário logado
       const { data: userData } = await supabase.auth.getUser();
       setUser(userData.user);
@@ -284,22 +284,22 @@ import { SplitButton } from "./components/buttonNewCard";
     }, [kanban_id]);
     //escutar mudanças no db
     useEffect(() => {
-  const subscription = supabase
-    .channel('public:kanban_cards')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'kanban_cards' },
-      (payload) => {
-        // Apenas recarrega sempre que houver alteração
-        console.log('Change received!', payload);
-        handleReloadKanban();
-      }
-    )
-    .subscribe();
+      const subscription = supabase
+        .channel('public:kanban_cards')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'kanban_cards' },
+          (payload) => {
+            // Apenas recarrega sempre que houver alteração
+            console.log('Change received!', payload);
+            handleReloadKanban();
+          }
+        )
+        .subscribe();
 
-  return () => {
-    supabase.removeChannel(subscription);
-  };
+      return () => {
+        supabase.removeChannel(subscription);
+      };
     }, [kanban_id]);
 
 
@@ -401,6 +401,31 @@ function formatISODate(isoString) {
   return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
 }
 
+const [editingTitle, setEditingTitle] = useState(null);
+const [editTitleValue, setEditTitleValue] = useState("");
+
+const handleRenameStep = async (stepId) => {
+  if (!editTitleValue.trim()) {
+    setEditingTitle(null);
+    return;
+  }
+
+  try {
+    const { error } = await supabase
+      .from("kanban_steps")
+      .update({ name: editTitleValue })
+      .eq("id", stepId);
+
+    if (error) throw error;
+
+    // Atualiza localmente (opcional)
+    handleReloadKanban()
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setEditingTitle(null);
+  }
+};
 
     
 
@@ -551,7 +576,32 @@ function formatISODate(isoString) {
                 {provided => (
                   <div ref={provided.innerRef} {...provided.droppableProps} className="flex-shrink-0 bg-gray-100 rounded-md  w-80 min-h-[200px] space-y-2">
                     <div className="flex justify-between items-center mb-2 bg-white p-5 shadow-md border border-gray-300 rounded-sm z-20">
-                      <h2 className="font-bold">{column.title}</h2>
+                     <div className="flex items-center gap-2">
+                            {editingTitle === column.id ? (
+                              <input
+                                type="text"
+                                value={editTitleValue}
+                                onChange={(e) => setEditTitleValue(e.target.value)}
+                                onBlur={() => handleRenameStep(column.id)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleRenameStep(column.id);
+                                }}
+                                autoFocus
+                                className="font-bold border-b border-gray-300 focus:outline-none focus:border-purple-500 bg-transparent w-full"
+                              />
+                            ) : (
+                              <h2
+                                className="font-bold cursor-pointer hover:underline"
+                                onClick={() => {
+                                  setEditingTitle(column.id);
+                                  setEditTitleValue(column.title);
+                                }}
+                              >
+                                {column.title}
+                              </h2>
+                            )}
+                          </div>
+
                       {canCreate && (
                       <div className="relative">
                         <div className="flex space-y-1 items-center">
@@ -573,7 +623,10 @@ function formatISODate(isoString) {
                             {/**Botão de Novo Card */}
                            <SplitButton
                               mainLabel="Criar"
-                              onMainClick={() =>  selectSubmodule('main', step.id)}
+                              onMainClick={() =>  {
+                                selectSubmodule('main', step.id)
+                                setRecord([]);
+                              }}
                               options={usuarioComSubmodules?.submodules?.map((sub) => ({
                                 label: sub.name,
                                 submodule: sub,

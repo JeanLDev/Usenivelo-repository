@@ -51,7 +51,7 @@ export default function ShareDropdown({
         className="flex items-center gap-2"
       >
         <Share2 className="w-4 h-4" />
-        Compartilhar
+        
       </Button>
 
       {open && (
