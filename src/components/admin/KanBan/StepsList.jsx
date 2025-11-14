@@ -49,7 +49,7 @@
         .select('*')
         .in('id', userPerms.map((u)=>u.user_id))
 
-        if (userPermsError) throw userPermsError;
+        if (errKanban) throw userPermsError;
 
         setUsers(users)
         setSteps(stepsData || []);
@@ -202,27 +202,25 @@
   <div className="flex items-center gap-2">
 
     {/* Botão de apagar etapa */}
-    <Button
-      variant="destructive"
-      size="sm"
-      onClick={async () => {
-        if (!confirm(`Deseja realmente apagar a etapa "${etapa.name}" e todas as permissões?`)) return;
+    
+    <Trash2 className="w-4 h-4 cursor-pointer text-red-500" 
+    variant="destructive"
+    size="sm"
+    onClick={async () => {
+      if (!confirm(`Deseja realmente apagar a etapa "${etapa.name}" e todas as permissões?`)) return;
 
-        await supabase
-          .from("kanban_steps_permissions")
-          .delete()
-          .eq("step_id", etapa.id);
+      await supabase
+        .from("kanban_steps_permissions")
+        .delete()
+        .eq("step_id", etapa.id);
 
-        await supabase
-          .from("kanban_steps")
-          .delete()
-          .eq("id", etapa.id);
+      await supabase
+        .from("kanban_steps")
+        .delete()
+        .eq("id", etapa.id);
 
-        setSteps((prev) => prev.filter((s) => s.id !== etapa.id));
-      }}
-    >
-      <Trash2 className="w-4 h-4" />
-    </Button>
+    }}
+    />
 
     <Button
       variant="ghost"

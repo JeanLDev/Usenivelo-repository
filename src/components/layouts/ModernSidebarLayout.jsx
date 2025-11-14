@@ -176,7 +176,9 @@ export default function ModernSidebarLayout({
 
       {/* --- LISTA DE SUBMÓDULOS --- */}
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
-       {selectedModule.submodules?.map((sub, index) => {
+       {selectedModule.submodules
+       .filter((sub)=> sub.id != "create-kanban")
+       .map((sub, index) => {
         const activeSub = location.pathname === sub.path;
         // Se for create-kanban, não é Link, é botão
           // Define path normal
