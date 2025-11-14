@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/customSupabaseClient";
-import { Loader2, ArrowLeft, FormInputIcon, Settings } from "lucide-react";
+import { Loader2, ArrowLeft, FormInputIcon, Settings, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import StepsList from "./StepsList";
 export default function KanbanConfig() {
   const [activeTab, setActiveTab] = useState("steps");
   const {kanban_id} = useParams();
+  const [kanban, setKanban] = useState()
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [steps, setSteps] = useState([]);
@@ -25,6 +26,11 @@ export default function KanbanConfig() {
       if (!userData?.user) throw new Error("Usuário não logado");
       setUser(userData.user);
 
+      const {data:kanban, erro:kanbanErro} = await supabase
+      .from("submodules")
+      .select('*')
+      .eq("id", kanban_id)
+      .single()
       // Buscar etapas do kanban
       const { data: stepsData } = await supabase
         .from("kanban_steps")
@@ -40,6 +46,7 @@ export default function KanbanConfig() {
 
       setSteps(stepsData || []);
       setStepsPerms(permsData || []);
+      setKanban(kanban)
       setLoading(false);
     } catch (err) {
       console.error(err);
@@ -64,11 +71,12 @@ export default function KanbanConfig() {
     );
   }
 
-  if (!user || stepsDoUsuario.length === 0) {
+  if (kanban.user_id != user?.id) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="p-6 text-center text-gray-500 italic border border-gray-300 rounded-md bg-gray-50 dark:bg-gray-900">
-          Você não possui permissões para acessar nenhuma etapa deste Kanban.
+          <AlertCircle className="text-center w-full mb-6 text-blue-400"/>
+          Você não possui permissões para acessar essa página.
         </div>
       </div>
     );

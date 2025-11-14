@@ -437,9 +437,13 @@ const handleRenameStep = async (stepId) => {
         </div>
       );
     }
+  // Verifica se o usuário é o dono do Kanban
+  const isOwner = user?.id === kanban.user_id;
+
   // Verifica se o usuário pode acessar o Kanban
-  const canAccessKanban = user?.id === kanban.user_id || kanban.share;
-  // Se não pode acessar
+  const canAccessKanban = isOwner || kanban.share;
+
+  // Se não puder acessar o Kanban
   if (!canAccessKanban) {
     return (
       <div className="flex flex-col items-center justify-center text-center py-24 px-6">
@@ -453,6 +457,7 @@ const handleRenameStep = async (stepId) => {
       </div>
     );
   }
+
 
   // Filtra as etapas que o usuário tem permissão ou que ele é dono
   const stepsDoUsuario = steps.filter(step =>
