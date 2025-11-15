@@ -9,6 +9,7 @@ import { Select, SelectItem, SelectTrigger, SelectContent, SelectValue } from "@
 import ConfirmationTemplate from "../SubmoduleCRUDconfig/templates/ConfirmationTemplate";
 import FileInput from "../Inputs/FileInput";
 import LimitReachedFullScreen from "../SubmoduleCRUDconfig/templates/LimitReachedFullScreen";
+import { RecordRelationField } from "../Tabs/RecordCreatorRelations";
 
 // --- Funções utilitárias --- //
 
@@ -44,13 +45,23 @@ export default function KanbanCard({ fields = [], subFields = [], submodule_id ,
     comments:[]
     });
    useEffect(() => {
+    if (record) {
+      setRecordsData(record); // atualiza recordData com o record atual
+      setPreviewData({
+        ...record.data,
+        title: record.data?.title || "",
+        description: record.data?.description || "",
+      });
       setCardExtras(prev => ({
         ...prev,
-        labels: record?.data?.labels || [],
-        checklist: record?.data?.checklist || [],
-        comments: record?.data?.comments || [],
+        labels: record.data?.labels || [],
+        checklist: record.data?.checklist || [],
+        comments: record.data?.comments || [],
       }));
-    }, [record.data]);
+    }
+  }, [record]);
+
+
 
 
 
@@ -532,6 +543,20 @@ const renderInput = (field) => {
       </div>
     );
   }
+  if(field.field_type === 'relation') {
+    return (
+      <RecordRelationField
+      field={field}
+      relatedRecords ={relatedRecords}
+      formData={formData}
+      setFormData={setFormData} 
+      kanban={kanban}
+      canEdit={canEdit}
+      onlyView={onlyView}
+      />
+    )
+    
+  }
 
   // ========== INPUT PADRÃO ==========
   return (
@@ -548,13 +573,14 @@ const renderInput = (field) => {
   );
 };
 
-
+  console.log(record)
  useEffect(() => {
   if (record?.data) {
     setPreviewData({
       ...record.data,
       description: record.data.description || "",
       title: record.data.title || "",
+      submodule_id:record.data.submodule_id
     });
     setDescription(record.data.description || "");
     setLoading(false)
@@ -777,7 +803,7 @@ const handleDescriptionChange = (value) => {
         { /* 🔥 COLE AQUI SEU CÓDIGO DE RENDERIZAÇÃO DE CAMPOS */ }
         <div className="space-y-6">
           {sortedFields.map((field) => (
-            <div key={field.id}>
+            <div key={field.id} className="border-b border-gray-400 pb-2">
               {renderInput(field)}
             </div>
           ))}

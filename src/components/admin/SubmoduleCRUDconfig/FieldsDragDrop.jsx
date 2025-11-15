@@ -17,27 +17,28 @@ export default function FieldsDragDrop({ fields, setFields, submoduleId }) {
   };
 
   const saveOrder = async () => {
-    try {
-      // Mapeia a ordem atual
-      const updatedFields = fields.map((field, index) => ({
-        id: field.id,
-        order: index + 1, // order começa em 1
-      }));
+  try {
+    // Mapeia a ordem atual
+    const updatedFields = fields.map((field, index) => ({
+      id: field.id,
+      order: index + 1,
+    }));
 
-      // Atualiza cada campo no Supabase
-      for (const f of updatedFields) {
-        await supabase
-          .from('submodule_fields')
-          .update({ order: f.order })
-          .eq('id', f.id);
-      }
+    // Atualiza todas as posições com um único loop usando upsert
+    const { error } = await supabase
+      .from("submodule_fields")
+      .upsert(updatedFields, { onConflict: "id" }); // garante que atualiza pelo id
 
-      alert('Ordem salva com sucesso!');
-    } catch (err) {
-      console.error(err);
-      alert('Erro ao salvar ordem');
-    }
-  };
+    if (error) throw error;
+
+    alert("Ordem salva com sucesso!");
+  } catch (err) {
+    console.error(err);
+    alert("Erro ao salvar ordem");
+  }
+};
+
+
   const saveRequired = async(field) => {
     const newFields = Array.from(fields);
     field.required = !field.required
@@ -75,7 +76,7 @@ export default function FieldsDragDrop({ fields, setFields, submoduleId }) {
                       <div className="flex items-center gap-2 justify-between w-full">
                         <div className="flex items-center gap-2 justify-between">
                           <GripVertical className="w-5 h-5 text-gray-400 cursor-grab" />
-                          <span className="font-medium text-gray-800 truncate">{field.name}</span>
+                          <span className="font-medium text-gray-800 truncate max-w-[120px]">{field.name}</span>
                           <span className="text-sm text-gray-500 ml-2">{field.field_type}</span>
                         </div>
                         <button className="text-sm text-gray-500 ml-2"

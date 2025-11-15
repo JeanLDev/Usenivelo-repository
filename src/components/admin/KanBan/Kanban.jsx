@@ -58,7 +58,6 @@ import { SplitButton } from "./components/buttonNewCard";
     // ------------------- FETCH -------------------
     const fetchData = async () => {
     try {
-      setLoading(true)
       // Usuário logado
       const { data: userData } = await supabase.auth.getUser();
       setUser(userData.user);
@@ -156,7 +155,7 @@ import { SplitButton } from "./components/buttonNewCard";
       const columns = {};
       const columnOrder = [];
       stepsData.forEach(step => {
-        columns[step.id] = { id: step.id, title: step.name, cardIds: [] };
+        columns[step.id] = { id: step.id, title: step.name, cardIds: [], color:step.color };
         columnOrder.push(step.id);
       });
 
@@ -250,7 +249,7 @@ import { SplitButton } from "./components/buttonNewCard";
         const columnOrder = [];
 
         stepsData.forEach(step => {
-          columns[step.id] = { id: step.id, title: step.name, cardIds: [] };
+          columns[step.id] = { id: step.id, title: step.name, cardIds: [], color: step.color  };
           columnOrder.push(step.id);
         });
 
@@ -365,15 +364,14 @@ import { SplitButton } from "./components/buttonNewCard";
         setOpenRecordModal(true)
     };
     const selectSubmoduleButton = (sub, step_id) => {
-        if(sub !='main') {
-          const selectFields = fields.filter(field => field.submodule_id === sub.id);
-  
-          // 2. IDs desses fields
-          const fieldIDs = selectFields.map(f => f.id);
-  
-          // 3. Subfields cujo field_id está entre esses IDs
-          const selectSubFields = subFields.filter(sub => fieldIDs.includes(sub.field_id));
-        }
+      const selectFields = fields.filter(field => field.submodule_id === sub.id);
+
+      // 2. IDs desses fields
+      const fieldIDs = selectFields.map(f => f.id);
+
+      // 3. Subfields cujo field_id está entre esses IDs
+      const selectSubFields = subFields.filter(sub => fieldIDs.includes(sub.field_id));
+        
         // 1. Fields desse submódulo
 
         setSubmoduleId(sub.id)
@@ -539,7 +537,7 @@ const handleRenameStep = async (stepId) => {
 
         {/* KANBAN */}
         <DragDropContext onDragEnd={onDragEnd}>
-          <div className="flex gap-4 overflow-x-auto min-h-[100vh]">
+          <div className={`flex gap-4 overflow-x-auto min-h-[100vh] `}>
             {columnsData.columnOrder.map(columnId => {
             const column = columnsData.columns[columnId];
             const step = steps.find(s => s.id === column.id);
@@ -575,13 +573,18 @@ const handleRenameStep = async (stepId) => {
               .map(u => companies.find(c => c.id === u.company_id))
               .filter(Boolean);
 
-
+            const color = column.color
 
             return (
               <Droppable droppableId={column.id} key={column.id} isDropDisabled={!canMoveStep}>
                 {provided => (
-                  <div ref={provided.innerRef} {...provided.droppableProps} className="flex-shrink-0 bg-gray-100 rounded-md  w-80 min-h-[200px] space-y-2">
-                    <div className="flex justify-between items-center mb-2 bg-white p-5 shadow-md border border-gray-300 rounded-sm z-20">
+                  <div ref={provided.innerRef} {...provided.droppableProps} className={`flex-shrink-0 
+                   rounded-md  w-80 space-y-2 pb-5`}
+                   style={{ backgroundColor: `${color}60` }}
+                   >
+                    <div className={`flex justify-between items-center mb-2  p-5 shadow-md border border-gray-300 rounded-sm z-20`}
+                    style={{ backgroundColor: `${color}` }}
+                    >
                      <div className="flex items-center gap-2">
                             {editingTitle === column.id ? (
                               <input
@@ -606,7 +609,7 @@ const handleRenameStep = async (stepId) => {
                                 {column.title}
                               </h2>
                             )}
-                          </div>
+                      </div>
 
                       {canCreate && (
                       <div className="relative">
@@ -633,6 +636,7 @@ const handleRenameStep = async (stepId) => {
                                 selectSubmodule('main', step.id)
                                 setRecord([]);
                                 setOnlyView(false);
+                                if(isOwner) setCanEdit(true)
                               }}
                               options={usuarioComSubmodules?.submodules?.map((sub) => ({
                                 label: sub.name,
@@ -708,6 +712,7 @@ const handleRenameStep = async (stepId) => {
             {...provided.draggableProps}
             {...provided.dragHandleProps}
             className="group relative p-3 rounded-md border border-gray-200 bg-white shadow-sm hover:shadow-md transition cursor-pointer select-none flex flex-col justify-between space-y-2 ml-2 mr-2"
+            
           >
             {/* Top: avatar + menu */}
             <div className="flex justify-between items-start">
@@ -769,7 +774,9 @@ const handleRenameStep = async (stepId) => {
                         onClick={() => {
 
                           const sub = submodules.find(i => i.id === card?.data?.submodule_id)
-                          selectSubmoduleButton(sub ? sub : 'main', step.id);
+                          console.log(card)
+
+                          selectSubmoduleButton(sub, step.id);
                           setRecord({ data: card?.data, ...card });
                           setCanEdit(true);
                           setOpenMenuCardId(null);
@@ -925,7 +932,7 @@ const handleRenameStep = async (stepId) => {
                 toast({ title: 'Etapa criada!', description: newKanbanName });
                 //para atualizar
                 fetchData()
-
+                setOpenCreateStepKanban(false)
                 }}
               >
                 Criar

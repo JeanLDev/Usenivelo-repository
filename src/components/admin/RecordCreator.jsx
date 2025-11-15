@@ -134,11 +134,13 @@ function calculateField(field, recordData) {
 
     fields.forEach(f => {
       if (init[f.name] === undefined) {
-        if (["number", "formula"].includes(f.field_type)) init[f.name] = 0;
+        if (f.field_type === "number") init[f.name] = ""; // ❌ não 0
+        else if (f.field_type === "formula") init[f.name] = 0; // mantém fórmula como 0
         else if (["boolean", "etapas"].includes(f.field_type)) init[f.name] = false;
         else init[f.name] = "";
       }
     });
+
 
     subFields.forEach(sf => {
       if (init[sf.name] === undefined) init[sf.name] = 0;
@@ -384,10 +386,18 @@ const renderInput = (field) => {
       <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{field.name}</label>
       <Input
         type={field.field_type}
-        value={value ?? ""}
-        onChange={(e) => handleChange(field.name, field.field_type === "number" ? Number(e.target.value) : e.target.value)}
+        value={formData[field.name] ?? ""} // sempre string se vazio
+        onChange={(e) =>
+          handleChange(
+            field.name,
+            field.field_type === "number"
+              ? e.target.value === "" ? "" : Number(e.target.value)
+              : e.target.value
+          )
+        }
         className="w-full"
       />
+
     </div>
   );
 };

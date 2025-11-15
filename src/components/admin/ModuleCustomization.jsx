@@ -9,6 +9,7 @@ import { Plus, Edit, Trash2, Settings, LayoutDashboard,
   Boxes,
   Zap,
   PlusIcon} from 'lucide-react';
+  
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -17,9 +18,10 @@ import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { useDashboard } from '@/contexts/DashboardContext';
 import Joyride from "react-joyride";
 import { Link } from 'react-router-dom';
+import IconPicker from './ModuleCustomizationComponents/IconPicker';
 
 // 🔹 Modal simples
-const Modal = ({ isOpen, onClose, title, children }) => {
+const Modal = ({ isOpen, onClose, title, children,showClose }) => {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
@@ -30,9 +32,9 @@ const Modal = ({ isOpen, onClose, title, children }) => {
       >
         <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">{title}</h2>
         {children}
-        <div className="mt-4 text-right">
-          <Button variant="outline" onClick={onClose}>Fechar</Button>
-        </div>
+        {!showClose && <div className="mt-4 text-right">
+          <Button variant="outline" onClick={onClose} className='w-full'>Fechar</Button>
+        </div>}
       </motion.div>
     </div>
   );
@@ -57,7 +59,6 @@ const ModuleCustomization = () => {
   const { user } = useAuth();
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
-
   // Modais
   const [createModuleModal, setCreateModuleModal] = useState(false);
   const [editModuleModal, setEditModuleModal] = useState(false);
@@ -458,7 +459,7 @@ const steps = [
       <div
         {...provided.droppableProps}
         ref={provided.innerRef}
-        className="flex flex-wrap gap-12 items-start"
+        className="flex flex-wrap gap-8 items-start"
       >
         {modules
           .filter((module) => module.customizable)
@@ -598,34 +599,27 @@ const steps = [
 
         {/* Grade de ícones */}
         <p className="text-sm text-gray-500 dark:text-gray-300 mb-2">Escolha um ícone:</p>
-        <div className="grid grid-cols-4 gap-2 mb-4">
-          {Object.keys(iconsMap).map((key) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setSelectedIcon(key)}
-              className={`p-2 rounded-lg border ${
-                selectedIcon === key ? 'border-blue-500 bg-blue-100' : 'border-gray-300 dark:border-gray-600'
-              } flex items-center justify-center`}
-            >
-              {iconsMap[key]}
-            </button>
-          ))}
+
+        <div className="w-full">
+           <IconPicker
+              selectedIcon={selectedIcon}
+              onChange={(iconName) => setSelectedIcon(iconName)}
+            />
         </div>
 
-        <div className="mt-4 text-right">
-          <Button onClick={handleCreateModule} disabled={loading}>Criar</Button>
+        <div className="mt-4 text-right w-full">
+          <Button onClick={handleCreateModule} disabled={loading} className='w-full'>Criar</Button>
         </div>
       </Modal>
 
       <Modal isOpen={editModuleModal} onClose={() => setEditModuleModal(false)} title="Editar Módulo">
         <input type="text" className="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:text-white" value={newModuleName} onChange={e => setNewModuleName(e.target.value)} />
-        <div className="mt-4 text-right">
-          <Button onClick={handleEditModule} disabled={loading}>Salvar</Button>
+        <div className="mt-4 text-right 2-full">
+          <Button onClick={handleEditModule} disabled={loading} className='w-full'>Salvar</Button>
         </div>
       </Modal>
 
-      <Modal isOpen={deleteModuleModal} onClose={() => setDeleteModuleModal(false)} title="Excluir Módulo">
+      <Modal isOpen={deleteModuleModal} onClose={() => setDeleteModuleModal(false)} title="Excluir Módulo" showClose={true}>
         <p>Deseja realmente excluir o módulo "{selectedModule?.name}"?</p>
         <div className="mt-4 flex justify-end space-x-2">
           <Button variant="outline" onClick={() => setDeleteModuleModal(false)}>Cancelar</Button>
@@ -637,18 +631,18 @@ const steps = [
       <Modal isOpen={createSubModuleModal} onClose={() => setCreateSubModuleModal(false)} title="Criar Submódulo">
         <input type="text" className="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:text-white" placeholder="Nome do submódulo" value={newSubModuleName} onChange={e => setNewSubModuleName(e.target.value)} />
         <div className="mt-4 text-right">
-          <Button onClick={handleCreateSubModule} disabled={loading}>Criar</Button>
+          <Button onClick={handleCreateSubModule} disabled={loading} className='w-full'>Criar</Button>
         </div>
       </Modal>
 
       <Modal isOpen={editSubModuleModal} onClose={() => setEditSubModuleModal(false)} title="Editar Submódulo">
         <input type="text" className="w-full border rounded px-3 py-2 dark:bg-gray-700 dark:text-white" value={newSubModuleName} onChange={e => setNewSubModuleName(e.target.value)} />
         <div className="mt-4 text-right">
-          <Button onClick={handleEditSubModule} disabled={loading}>Salvar</Button>
+          <Button onClick={handleEditSubModule} disabled={loading} className='w-full'>Salvar</Button>
         </div>
       </Modal>
 
-      <Modal isOpen={deleteSubModuleModal} onClose={() => setDeleteSubModuleModal(false)} title="Excluir Submódulo">
+      <Modal isOpen={deleteSubModuleModal} onClose={() => setDeleteSubModuleModal(false)} title="Excluir Submódulo" showClose={true}>
         <p>Deseja realmente excluir o submódulo "{selectedSubModule?.label}"?</p>
         <div className="mt-4 flex justify-end space-x-2">
           <Button variant="outline" onClick={() => setDeleteSubModuleModal(false)}>Cancelar</Button>

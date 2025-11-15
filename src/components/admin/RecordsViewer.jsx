@@ -212,7 +212,7 @@ export default function RecordsTable({ records = [], fields = [] , subFields=[] 
           // 🧮 Campos normais (texto, número, fórmula, etc)
           const displayValue =
             typeof value === "number"
-              ? value.toFixed(2)
+              ? value.toFixed(0)
               : String(value ?? "-");
 
           return (

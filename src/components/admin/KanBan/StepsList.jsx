@@ -4,7 +4,8 @@
   import { useParams } from "react-router-dom";
   import { supabase } from "@/lib/customSupabaseClient";
   import PermissionCard from "./PermissionCard";
-  import { Switch } from "@/components/ui/switch";
+  import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
+
 
 
   export default function StepsList() {
@@ -64,7 +65,7 @@
 
     useEffect(() => {
       fetchSteps();
-    }, [refresh,steps]);
+    }, []);
 
     // 🔹 Adicionar nova etapa
     const addStep = async () => {
@@ -107,36 +108,63 @@
   }
 };
 
-  
+  const handleDragEnd = async (result) => {
+  if (!result.destination) return;
+
+  const reordered = Array.from(steps);
+  const [moved] = reordered.splice(result.source.index, 1);
+  reordered.splice(result.destination.index, 0, moved);
+
+  // ajusta as posições visualmente
+  const updated = reordered.map((step, index) => ({
+    ...step,
+    position: index
+  }));
+
+  setSteps(updated);
+
+  // 🔥 apenas 1 operação no banco
+  await supabase
+    .from("kanban_steps")
+    .upsert(
+      updated.map((s) => ({
+        id: s.id,
+        position: s.position
+      })),
+      { onConflict: "id" }
+    );
+};
+
  
 
-    const etapasComUsuarios = steps.map((etapa) => {
-    // Pega as permissões dessa etapa
-    const permsDaEtapa = userPerms.filter((perm) => perm.step_id === etapa.id);
+  const etapasComUsuarios = steps.map((etapa) => {
+  // Pega as permissões dessa etapa
+  const permsDaEtapa = userPerms.filter((perm) => perm.step_id === etapa.id);
 
-    // Para cada permissão, juntamos os dados do usuário
-    const usuariosComDados = permsDaEtapa.map((perm) => {
-      const usuario = users.find((u) => u.id === perm.user_id);
-      return {
-        perm_id: perm.id,
-        user_id: perm.user_id,
-        email: usuario?.email ?? "sem email",
-        move: perm.move,
-        edit: perm.edit,
-        view: perm.view,
-        create:perm.create,
-        delete:perm.delete,
-        step_id:perm.step_id
-      };
-    });
-
+  // Para cada permissão, juntamos os dados do usuário
+  const usuariosComDados = permsDaEtapa.map((perm) => {
+    const usuario = users.find((u) => u.id === perm.user_id);
     return {
-      ...etapa,
-      usuarios: usuariosComDados,
+      perm_id: perm.id,
+      user_id: perm.user_id,
+      email: usuario?.email ?? "sem email",
+      move: perm.move,
+      edit: perm.edit,
+      view: perm.view,
+      create:perm.create,
+      delete:perm.delete,
+      step_id:perm.step_id
     };
+  });
+
+  return {
+    ...etapa,
+    usuarios: usuariosComDados,
+  };
 
 
-    });
+  });
+
     if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -162,187 +190,230 @@
   </div>
 
   {/* Lista de etapas */}
-  <div className="space-y-4">
-    {etapasComUsuarios.map((etapa) => (
+  <DragDropContext onDragEnd={handleDragEnd}>
+  <Droppable droppableId="steps">
+    {(provided) => (
       <div
-        key={etapa.id}
-        className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 shadow-sm hover:shadow-md transition-shadow"
+        className="space-y-4"
+        ref={provided.innerRef}
+        {...provided.droppableProps}
       >
-        {/* Header da etapa */}
-{/* Header da etapa */}
-<div className="flex justify-between items-center mb-3">
+        {etapasComUsuarios.map((etapa, index) => (
+          <Draggable key={etapa.id} draggableId={String(etapa.id)} index={index}>
+            {(provided) => (
+              <div
+                ref={provided.innerRef}
+                {...provided.draggableProps}
+                {...provided.dragHandleProps}
+                className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 shadow-sm hover:shadow-md transition-shadow"
+              >
+                {/* ---- SEU COMPONENTE AQUI ---- */}
 
-  {/* Título da etapa com edição inline */}
-  {editingIndex === etapa.id ? (
-    <input
-      type="text"
-      value={editValue}
-      onChange={(e) => setEditValue(e.target.value)}
-      onBlur={() => handleRenameStep(etapa.id)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") handleRenameStep(etapa.id);
-      }}
-      autoFocus
-      className="font-bold border-b border-gray-300 focus:outline-none focus:border-purple-500 bg-transparent w-full"
-    />
-  ) : (
-    <h2
-      className="font-bold cursor-pointer hover:underline"
-      onClick={() => {
-        setEditingIndex(etapa.id);
-        setEditValue(etapa.name);
-      }}
-    >
-      {etapa.name}
-    </h2>
-  )}
+                {/* Header da etapa */}
+                <div className="flex justify-between items-center mb-3">
+                  {editingIndex === etapa.id ? (
+                    <input
+                      type="text"
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onBlur={() => handleRenameStep(etapa.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleRenameStep(etapa.id);
+                      }}
+                      autoFocus
+                      className="font-bold border-b border-gray-300 focus:outline-none focus:border-purple-500 bg-transparent w-full"
+                    />
+                  ) : (
+                    <h2
+                      className="font-bold cursor-pointer hover:underline"
+                      onClick={() => {
+                        setEditingIndex(etapa.id);
+                        setEditValue(etapa.name);
+                      }}
+                    >
+                      {etapa.name}
+                    </h2>
+                  )}
 
-  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
 
-    {/* Botão de apagar etapa */}
-    
-    <Trash2 className="w-4 h-4 cursor-pointer text-red-500" 
-    variant="destructive"
-    size="sm"
-    onClick={async () => {
-      if (!confirm(`Deseja realmente apagar a etapa "${etapa.name}" e todas as permissões?`)) return;
+                    <Trash2
+                      className="w-4 h-4 cursor-pointer text-red-500"
+                      onClick={async () => {
+                        if (!confirm(`Deseja realmente apagar a etapa "${etapa.name}"?`)) return;
 
-      await supabase
-        .from("kanban_steps_permissions")
-        .delete()
-        .eq("step_id", etapa.id);
+                        await supabase
+                          .from("kanban_steps_permissions")
+                          .delete()
+                          .eq("step_id", etapa.id);
 
-      await supabase
-        .from("kanban_steps")
-        .delete()
-        .eq("id", etapa.id);
+                        await supabase
+                          .from("kanban_steps")
+                          .delete()
+                          .eq("id", etapa.id);
+                          fetchSteps()
+                      }}
+                    />
 
-    }}
-    />
+                    <input
+                      type="color"
+                      className="w-5 h-5"
+                      defaultValue={etapa.color ? etapa.color : '#ffff'}
+                      onChange={async (e) => {
+                        try {
+                          const { error } = await supabase
+                            .from("kanban_steps")
+                            .update({ color: e.target.value })
+                            .eq("id", etapa.id);
 
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={() => setNewPermission(etapa.id)}
-      className="flex items-center gap-1 text-sm"
-    >
-      <Plus className="w-4 h-4" />
-      Usuário
-    </Button>
-  </div>
-</div>
+                          if (error) throw error;
+                        } catch (err) {
+                          console.error(err);
+                        }
+                      }}
+                    />
 
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setNewPermission(etapa.id)}
+                      className="flex items-center gap-1 text-sm"
+                    >
+                      <Plus className="w-4 h-4" /> Usuário
+                    </Button>
 
-
-        {/* PermissionCard (se abrindo) */}
-        {newPermission === etapa.id ? (
-          <div className="mb-3">
-            <PermissionCard
-              setNewPermission={() => setNewPermission(false)}
-              step={etapa}
-              fetchSteps={fetchSteps}
-            />
-          </div>
-        ):(
-          <div>
-            {/* Lista de usuários */}
-            
+                  </div>
                 </div>
-              )}
-              {/* Lista de usuários */}
-              {etapa.usuarios.length > 0 && (
-                <ul className="space-y-1 text-sm">
-                  {etapa.usuarios
-                  .filter((step)=> step.user_id != kanban.user_id)
-                  .map((user, index) => {
-                    return(
-                    <li
-                    key={user.perm_id} // ✅ agora é realmente único
-                    className="flex justify-between items-center border-b border-gray-200 dark:border-gray-800 pb-1 last:border-0"
-                  >
-                      <span>{user.email}</span>
 
-                      <div className="flex items-center gap-2">
-                        {/* Menu de permissões */}
-                        <div className="relative">
-                          <button
-                            onClick={() =>
-                              setOpenUser((prev) => ({
-                                ...prev,
-                                [etapa.id]: prev[etapa.id] === user.user_id ? null : user.user_id,
-                              }))
-                            }
-                            className="px-2 py-1 border rounded bg-gray-100 dark:bg-gray-800 text-sm"
+                {/* resto do conteúdo da etapa... */}
+                <div>
+                  {etapa.usuarios.length > 0 && (
+                  <ul className="space-y-1 text-sm">
+                    {etapa.usuarios
+                      .filter((step) => step.user_id != kanban.user_id)
+                      .map((user, index) => {
+                        return (
+                          <li
+                            key={user.perm_id}
+                            className="flex justify-between items-center border-b border-gray-200 dark:border-gray-800 pb-1 last:border-0"
                           >
-                            <Settings/>
-                          </button>
+                            <span>{user.email}</span>
 
-                          {openUser[etapa.id] === user.user_id && (
-                            <div className="absolute right-0 mt-1 w-44 p-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded shadow-lg space-y-2 z-10">
-                              {["move", "edit", "view", "create", "delete"].map((permKey) => (
-                                <label key={permKey} className="flex items-center gap-2 text-sm">
-                                  <input
-                                    type="checkbox"
-                                    checked={user[permKey]}
-                                    onChange={async () => {
-                                      const newValue = !user[permKey];
-                                      etapa.usuarios[index][permKey] = newValue;
-                                      setRefresh((r) => r + 1);
+                            <div className="flex items-center gap-2">
+                              {/* Menu de permissões */}
+                              <div className="relative">
+                                <button
+                                  onClick={() =>
+                                    setOpenUser((prev) => ({
+                                      ...prev,
+                                      [etapa.id]:
+                                        prev[etapa.id] === user.user_id
+                                          ? null
+                                          : user.user_id,
+                                    }))
+                                  }
+                                  className="px-2 py-1 border rounded bg-gray-100 dark:bg-gray-800 text-sm"
+                                >
+                                  <Settings />
+                                </button>
 
-                                      await supabase
-                                        .from("kanban_steps_permissions")
-                                        .update({ [permKey]: newValue })
-                                        .eq("step_id", user.step_id)
-                                        .eq("user_id", user.user_id);
-                                    }}
-                                    className="h-4 w-4 rounded border-gray-400"
-                                  />
-                                  {permKey.charAt(0).toUpperCase() + permKey.slice(1)}
-                                </label>
-                              ))}
+                                {openUser[etapa.id] === user.user_id && (
+                                  <div className="absolute right-0 mt-1 w-44 p-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded shadow-lg space-y-2 z-10">
+                                    {[
+                                      "move",
+                                      "edit",
+                                      "view",
+                                      "create",
+                                      "delete",
+                                    ].map((permKey) => (
+                                      <label
+                                        key={permKey}
+                                        className="flex items-center gap-2 text-sm"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={user[permKey]}
+                                          onChange={async () => {
+                                            const newValue = !user[permKey];
+                                            etapa.usuarios[index][permKey] =
+                                              newValue;
+                                            setRefresh((r) => r + 1);
+
+                                            await supabase
+                                              .from(
+                                                "kanban_steps_permissions"
+                                              )
+                                              .update({ [permKey]: newValue })
+                                              .eq("step_id", user.step_id)
+                                              .eq("user_id", user.user_id);
+                                          }}
+                                          className="h-4 w-4 rounded border-gray-400"
+                                        />
+                                        {permKey
+                                          .charAt(0)
+                                          .toUpperCase() +
+                                          permKey.slice(1)}
+                                      </label>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Botão de apagar usuário */}
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={async () => {
+                                  if (
+                                    !confirm(
+                                      `Deseja realmente remover ${user.email} da etapa ${etapa.name}?`
+                                    )
+                                  )
+                                    return;
+
+                                  await supabase
+                                    .from("kanban_steps_permissions")
+                                    .delete()
+                                    .eq("step_id", user.step_id)
+                                    .eq("user_id", user.user_id);
+
+                                  setSteps((prevSteps) =>
+                                    prevSteps.map((s) => {
+                                      if (s.id !== etapa.id) return s;
+                                      return {
+                                        ...s,
+                                        usuarios: (s.usuarios || []).filter(
+                                          (u) =>
+                                            u.user_id !== user.user_id
+                                        ),
+                                      };
+                                    })
+                                  );
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
                             </div>
-                          )}
-                        </div>
+                          </li>
+                        );
+                      })}
+                  </ul>
+                )}
+                </div>
+              </div>
+            )}
+          </Draggable>
+        ))}
 
-                        {/* Botão de apagar usuário */}
-                        
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={async () => {
-                            if (!confirm(`Deseja realmente remover ${user.email} da etapa ${etapa.name}?`)) return;
+        {provided.placeholder}
+      </div>
+    )}
+  </Droppable>
+</DragDropContext>
 
-                            // Remove do Supabase
-                            await supabase
-                              .from("kanban_steps_permissions")
-                              .delete()
-                              .eq("step_id", user.step_id)
-                              .eq("user_id", user.user_id);
 
-                            // Atualiza localmente
-                            setSteps((prevSteps) =>
-                              prevSteps.map((s) => {
-                                if (s.id !== etapa.id) return s;
-                                return {
-                                  ...s,
-                                  usuarios: (s.usuarios || []).filter((u) => u.user_id !== user.user_id),
-                                };
-                              })
-                            );
+     
 
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </li>
-                  )})}
-                </ul>
-              ) }
-
-          </div>
-    ))}
-  </div>
 </div>
 
     );
