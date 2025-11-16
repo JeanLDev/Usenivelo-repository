@@ -340,6 +340,13 @@ export default function ModernSidebarLayout({
               toast({ title: "Erro", description: "Não foi possível criar o Kanban" });
               return;
             }
+             setTimeout(()=> {
+              setSelectedModule((prev) => ({
+                ...prev,
+                submodules: [...(prev.submodules || []), subm[0]],
+              }));
+              handleCloseSubSidebar()
+            },2000)
             // 🔹 Feedback e navegação
             toast({ title: "Submódulo criado!", description: newKanbanName });
             setCreateSubModuleModal(false);
