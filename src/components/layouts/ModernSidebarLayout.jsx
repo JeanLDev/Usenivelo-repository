@@ -389,7 +389,7 @@ export default function ModernSidebarLayout({
           <Button
             variant="outline"
             size="sm"
-            className="w-full justify-center border-dashed"
+            className="w-full justify-center bg-gradient-to-r from-[#007CF0] to-[#7928CA] shadow-md gap-2 sm:gap-0 text-white"
             onClick={() => setOpenCreateKanban(!openCreateKanban)}
           >
             <Plus className="w-4 h-4 mr-1" /> Adicionar KanBan
@@ -399,7 +399,6 @@ export default function ModernSidebarLayout({
       
     </motion.div>
   )}
-
   
 </AnimatePresence>
 

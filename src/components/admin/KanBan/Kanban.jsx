@@ -482,12 +482,13 @@ const handleRenameStep = async (stepId) => {
     return (
       <div className=" space-y-4">
        {/* CABEÇALHO */}
-<div className="p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center rounded-sm bg-gradient-to-r from-purple-200 via-purple-300 to-purple-400 shadow-md gap-2 sm:gap-0">
+<div className="p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center rounded-sm 
+                bg-gradient-to-r from-[#7928CA] to-[#007CF0] shadow-md gap-2 sm:gap-0">
   
   <div className="flex items-center">
     {/* Select do Kanban */}
     <select
-      className="p-2 rounded-sm bg-white border border-gray-300 w-full sm:w-auto"
+      className="p-2 rounded-sm bg-white border border-gray-300 w-full sm:w-auto font-sans cursor-pointer"
       value={kanban_id}
       onChange={(e) => navigate(`/admin/KanBan/${e.target.value}`)}
     >
@@ -497,7 +498,7 @@ const handleRenameStep = async (stepId) => {
         </option>
       ))}
     </select>
-   {user.id === kanban.user_id &&
+   
    <Button
     className="ml-2"
     onClick={()=> {
@@ -505,7 +506,7 @@ const handleRenameStep = async (stepId) => {
     }}
     >
       <PlusCircle className="mr-2"/> Novo
-    </Button>}
+    </Button>
   </div>
 
 
