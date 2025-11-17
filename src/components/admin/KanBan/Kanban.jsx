@@ -731,7 +731,7 @@ const handleRenameStep = async (stepId) => {
               </div>
                {/* Data */}
              {date && (
-              <div className="truncate max-w-[120px] self-start px-2 py-0.5 rounded-md bg-green-100 text-green-800 text-xs">
+              <div className="truncate max-w-[130px] self-start px-2 py-0.5 rounded-md bg-green-100 text-green-800 text-xs">
                 {formatISODate(date)}
               </div>
             )}
