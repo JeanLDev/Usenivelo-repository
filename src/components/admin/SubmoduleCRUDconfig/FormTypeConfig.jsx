@@ -36,6 +36,14 @@ export default function FormTypeConfig() {
   const [formType, setFormType] = useState("normal");
   const [confirmationMode, setConfirmationMode] = useState("image");
   const [imageURL, setImageURL] = useState("");
+
+  const [kanbans, setKanbans] = useState([])
+  const [steps, setSteps] = useState([])
+
+  const [submoduloSelect, setSubmoduleSelect] = useState({})
+  const [kanbanSelect, setKanbanSelect] = useState({})
+  const [stepSelect, setStepSelect] = useState({})
+
   const [templateData, setTemplateData] = useState({
     title: "Inscrição Confirmada!",
     subtitle: "Parabéns!",
@@ -59,8 +67,21 @@ export default function FormTypeConfig() {
     if (!user || !submoduleId) return;
 
     async function fetchOrCreateConfig() {
-      setLoading(true);
       try {
+        let { data: kanbans, error: errKanban } = await supabase
+          .from("submodules")
+          .select("*")
+          .eq("user_id", user.id)
+
+        let { data: steps, error: errSteps } = await supabase
+        .from("kanban_steps")
+        .select("*")
+        .eq("user_id", user.id)
+
+
+        if(errKanban) throw errKanban
+        if(errSteps)throw errSteps
+
         let { data, error } = await supabase
           .from("user_submodule_form_config")
           .select("*")
@@ -72,7 +93,8 @@ export default function FormTypeConfig() {
           console.error(error);
           return;
         }
-
+        setKanbans(kanbans)
+        setSteps(steps)
         if (!data) {
           const initialConfig = {
             user_id: user.id,
@@ -97,6 +119,7 @@ export default function FormTypeConfig() {
             setTemplateData(insertedData.template_data);
           }
         } else {
+          
           setFormType(data.form_type || "normal");
           setConfirmationMode(data.confirmation_mode || "image");
           setImageURL(data.image_url || "");
@@ -184,9 +207,13 @@ export default function FormTypeConfig() {
             <RadioItem value="confirmation" id="confirmation" groupName="formType" selectedValue={formType} onValueChange={setFormType}>
               Confirmação
             </RadioItem>
+            <RadioItem value="send_kanban" id="send_kanban" groupName="formType" selectedValue={formType} onValueChange={setFormType}>
+              Enviar p/ Kanban
+            </RadioItem>
           </div>
         </div>
 
+{console.log(kanbans)}
         {formType === "confirmation" && (
           <div className="mt-4 space-y-4">
             <Separator />
@@ -246,6 +273,85 @@ export default function FormTypeConfig() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+        {formType === "send_kanban" && (
+          <div className="mt-4 space-y-4">
+            <Separator />
+            {/**selecionar o formulário (submodule) */}
+            <div>
+              <Label>Selecione o submódulo:</Label>
+              <div className="flex flex-col space-y-2 mt-2">
+                <select
+                  className="bg-white shadow-md p-2"
+                  value={submoduloSelect?.id ?? ""}
+                  onChange={(e) => {
+                    const selectedId = e.target.value;
+                    const selectedObj = kanbans.find(k => k.id === selectedId);
+                    setSubmoduleSelect(selectedObj);
+                  }}
+                >
+                  <option value="" disabled>Selecione...</option>
+                  {kanbans
+                  .map((kan) => (
+                    <option key={kan.id} value={kan.id}>
+                      {kan.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {/**selecionar kanban */}
+            <div>
+              <Label>Selecione o kanban:</Label>
+              <div className="flex flex-col space-y-2 mt-2">
+                <select
+                  className="bg-white shadow-md p-2"
+                  value={kanbanSelect?.id ?? ""}
+                  onChange={(e) => {
+                    const selectedId = e.target.value;
+                    const selectedObj = kanbans.find(k => k.id === selectedId);
+                    setKanbanSelect(selectedObj);
+                  }}
+                >
+                  <option value="">Selecione...</option>
+                  {kanbans
+                  .filter((kan)=> kan.kanban)
+                  .map((kan) => (
+                    <option key={kan.id} value={kan.id}>
+                      {kan.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/**selecionar etapa */}
+            <div>
+              <Label>Selecione a etapa:</Label>
+               <select
+                className="bg-white shadow-md p-2 w-full"
+                value={stepSelect?.id ?? ""}
+                onChange={(e) => {
+                  const selectedId = e.target.value;
+
+                  const selectedObj = steps.find(k => k.id === selectedId);
+                  setStepSelect(selectedObj);
+                }}
+              >
+                <option value="">Selecione...</option>
+
+                {steps
+                .filter((step)=> step.kanban_id === kanbanSelect.id)
+                .map((kan) => (
+                  <option key={kan.id} value={kan.id}>
+                    {kan.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+
           </div>
         )}
 
