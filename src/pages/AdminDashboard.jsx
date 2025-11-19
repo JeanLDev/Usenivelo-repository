@@ -18,6 +18,7 @@ import AccountSettings from '../components/admin/AccountSettings';
 import Kanban from '../components/admin/KanBan/Kanban';
 import SubmoduleSettings from '../components/admin/SubModuleFieldsCRUDSettings';
 import KanbanConfig from '../components/admin/KanBan/KanbanConfig';
+import Rastreamento from '../components/admin/Rastreamento/Rastreamento';
 
 const AdminDashboard = () => {
   const [menuItems, setMenuItems] = useState([]);
@@ -125,6 +126,8 @@ const AdminDashboard = () => {
             <Route path="financeiro/visao-geral" element={<FinancialOverview />} />
             <Route path="financeiro/relatorios" element={<ReportsPage />} />
             <Route path="financeiro/financas" element={<MyFinancesPage />} />
+            <Route path="financeiro/financas" element={<MyFinancesPage />} />
+            <Route path="Rastreamento" element={<Rastreamento/>} />
           </Routes>
         </DashboardLayout>
       </DashboardProvider>

@@ -22,17 +22,20 @@ export default function SharedServiceView() {
   const [logoUrl, setLogoUrl] = useState(null);
   const [userFieldsData, setuserFieldsData] = useState([])
   const [companyFieldsData, setcompanyFieldsData] = useState([])
-  const [formConfig, setFormConfig] = useState([])
+  const [formConfig, setFormConfig] = useState({})
   const [form_type, setForm_type] = useState('')
-
+  const [kanbanSelect, setKanbanSelect] = useState('')
+  const [stepSelect, setStepSelect] = useState('')
+  const [sendForKanban, setSendForKanban] = useState(false)
+  const [userLogado, setUserLogado] = useState({})
     
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setLoading(true);
         setError("");
-
+        const { data: userData } = await supabase.auth.getUser();
+        setUserLogado(userData.user);
         // 🔹 Buscar módulo
         const { data: moduleData, error: moduleError } = await supabase
           .from("modules")
@@ -67,7 +70,7 @@ export default function SharedServiceView() {
         const { data: userDb } = await supabase
           .from("users")
           .select("*")
-          .eq('id',moduleData.user_id)
+          .eq('id', moduleData.user_id)
           .single()
 
         
@@ -91,6 +94,7 @@ export default function SharedServiceView() {
             .select('*')
             .eq("user_id", userDb.id)
             .eq("submodule_id", sub_id)
+            .single()
           if (formsConfigError) throw subError;
 
 
@@ -128,8 +132,12 @@ export default function SharedServiceView() {
         setcompanyFieldsData(companyFieldsData || [])
         setuserFieldsData(userFieldsData || [])
         
-
-
+        //saber se é para enviar para kanban
+        if(formConfig.step_selected && formConfig.kanban_selected) {
+          setSendForKanban(true)
+        }
+        setStepSelect(formConfig.step_selected)
+        setKanbanSelect(formConfig.kanban_selected)
         setUser(userDb)
         setCompany(companieData);
         setSubmodule(sub);
@@ -137,7 +145,7 @@ export default function SharedServiceView() {
         setFields(fieldsData || []);
         setValidated(true);
         setFormConfig(formsConfigData)
-        setForm_type(formsConfigData.length && formsConfigData[0].form_type)
+        setForm_type(formsConfigData.length && formsConfigData.form_type)
       } catch (err) {
         console.error(err);
         setError(err.message || "Erro inesperado ao carregar dados.");
@@ -169,10 +177,9 @@ export default function SharedServiceView() {
 
 
   if (!validated) return null;
-
   return (
     <div>
-      <RecordShared  fields={fields} subFields={subFields} submodule_id={submodule.id} isOpen={true} onClose={ ()=>navigate("/")} shared={true} limiteAtingido={limiteAtingido} creating={false} logoUrl={logoUrl}  userFieldsData={userFieldsData} companyFieldsData={companyFieldsData} user={user} company={company} form_type={form_type} formConfig={formConfig}/>
+      <RecordShared  fields={fields} subFields={subFields} submodule_id={submodule.id} isOpen={true} onClose={ ()=>navigate("/")} shared={true} limiteAtingido={limiteAtingido} creating={false} logoUrl={logoUrl}  userFieldsData={userFieldsData} companyFieldsData={companyFieldsData} user={user} company={company} form_type={form_type} formConfig={formConfig} sendForKanban={sendForKanban} kanbanSelect={kanbanSelect} stepSelect={stepSelect} userLogado={userLogado}/>
     </div>
   );
 }

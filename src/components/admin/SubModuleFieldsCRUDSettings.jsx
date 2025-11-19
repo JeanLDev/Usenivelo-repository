@@ -18,7 +18,7 @@ export default function AccountSettings() {
     const {moduleId, submoduleId }= useParams();
     const [module, setModule] = useState([])
     const [submodule, setSubmodule] = useState([])
-    const [activeTab, setActiveTab] = useState("campos");
+    const [activeTab, setActiveTab] = useState("confirm");
     const [loading, setLoading] = useState(false);
     const [fields, setFields] = useState([])
     const navigate = useNavigate();

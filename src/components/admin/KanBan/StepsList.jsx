@@ -212,29 +212,48 @@
 
                 {/* Header da etapa */}
                 <div className="flex justify-between items-center mb-3">
-                  {editingIndex === etapa.id ? (
+                  <div>
+                    {editingIndex === etapa.id ? (
+                      <input
+                        type="text"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onBlur={() => handleRenameStep(etapa.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleRenameStep(etapa.id);
+                        }}
+                        className="font-bold border-b border-gray-300 focus:outline-none focus:border-purple-500 bg-transparent w-full"
+                      />
+                    ) : (
+                      <h2
+                        className="font-bold cursor-pointer hover:underline"
+                        onClick={() => {
+                          setEditingIndex(etapa.id);
+                          setEditValue(etapa.name);
+                        }}
+                      >
+                        {etapa.name}
+                      </h2>
+                    )}
                     <input
-                      type="text"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onBlur={() => handleRenameStep(etapa.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleRenameStep(etapa.id);
+                    type="checkbox"
+                    className="mr-2"
+                    defaultChecked={etapa.public}
+                    onChange={async (e) => {
+                        try {
+                          const { error } = await supabase
+                            .from("kanban_steps")
+                            .update({ public: e.target.value })
+                            .eq("id", etapa.id);
+
+                          if (error) throw error;
+                        } catch (err) {
+                          console.error(err);
+                        }
                       }}
-                      autoFocus
-                      className="font-bold border-b border-gray-300 focus:outline-none focus:border-purple-500 bg-transparent w-full"
                     />
-                  ) : (
-                    <h2
-                      className="font-bold cursor-pointer hover:underline"
-                      onClick={() => {
-                        setEditingIndex(etapa.id);
-                        setEditValue(etapa.name);
-                      }}
-                    >
-                      {etapa.name}
-                    </h2>
-                  )}
+                    <span>Pública</span>
+                  </div>
 
                   <div className="flex items-center gap-2">
 

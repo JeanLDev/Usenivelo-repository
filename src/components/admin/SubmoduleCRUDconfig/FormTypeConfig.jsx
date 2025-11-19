@@ -36,6 +36,7 @@ export default function FormTypeConfig() {
   const [formType, setFormType] = useState("normal");
   const [confirmationMode, setConfirmationMode] = useState("image");
   const [imageURL, setImageURL] = useState("");
+  const [data, setData] = useState({})
 
   const [kanbans, setKanbans] = useState([])
   const [steps, setSteps] = useState([])
@@ -122,9 +123,7 @@ export default function FormTypeConfig() {
             setTemplateData(insertedData.template_data);
           }
         } else {
-          
-          const sub = kanbans.find()
-
+          setData(data)
           setFormType(data.form_type || "normal");
           setConfirmationMode(data.confirmation_mode || "image");
           setImageURL(data.image_url || "");
@@ -153,7 +152,7 @@ export default function FormTypeConfig() {
         confirmation_mode: confirmationMode,
         image_url: imageURL,
         template_data: templateData,
-        sub_selected:submoduloSelect && submoduloSelect.id,
+        //para qual kanban e etapa vai enviar 
         kanban_selected: kanbanSelect && kanbanSelect.id,
         step_selected:stepSelect && stepSelect.id
       };
@@ -192,6 +191,8 @@ export default function FormTypeConfig() {
     if (url) setImageURL(url);
     setUploading(false);
   };
+  const selectedKanban= kanbans && data && kanbans.find(k => k.id === data.kanban_selected && data.kanban_selected);
+  const selectedStep= steps && data && steps.find(k => k.id === data.step_selected && data.step_selected);
 
   if (loading) return <div className="text-center py-10">Carregando...</div>;
 
@@ -286,35 +287,12 @@ export default function FormTypeConfig() {
         {formType === "send_kanban" && (
           <div className="mt-4 space-y-4">
             <Separator />
-            {/**selecionar o formulário (submodule) */}
-            <div>
-              <Label>Selecione o submódulo:</Label>
-              <div className="flex flex-col space-y-2 mt-2">
-                <select
-                  className="bg-white shadow-md p-2"
-                  value={submoduloSelect?.id ?? ""}
-                  onChange={(e) => {
-                    const selectedId = e.target.value;
-                    const selectedObj = kanbans.find(k => k.id === selectedId);
-                    setSubmoduleSelect(selectedObj);
-                  }}
-                >
-                  <option value="" disabled>Selecione...</option>
-                  {kanbans
-                  .map((kan) => (
-                    <option key={kan.id} value={kan.id}>
-                      {kan.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
             {/**selecionar kanban */}
             <div>
               <Label>Selecione o kanban:</Label>
               <div className="flex flex-col space-y-2 mt-2">
                 <select
-                  className="bg-white shadow-md p-2"
+                  className="bg-white shadow-md p-2  border border-gray-200 rounded-md"
                   value={kanbanSelect?.id ?? ""}
                   onChange={(e) => {
                     const selectedId = e.target.value;
@@ -322,7 +300,7 @@ export default function FormTypeConfig() {
                     setKanbanSelect(selectedObj);
                   }}
                 >
-                  <option value="">Selecione...</option>
+                  <option value={selectedKanban.id}>{!kanbanSelect.length ? selectedKanban.name : 'Selecione...'}</option>
                   {kanbans
                   .filter((kan)=> kan.kanban)
                   .map((kan) => (
@@ -338,19 +316,18 @@ export default function FormTypeConfig() {
             <div>
               <Label>Selecione a etapa:</Label>
                <select
-                className="bg-white shadow-md p-2 w-full"
+                className="bg-white shadow-md p-2 w-full border border-gray-200 rounded-md"
                 value={stepSelect?.id ?? ""}
                 onChange={(e) => {
                   const selectedId = e.target.value;
-
                   const selectedObj = steps.find(k => k.id === selectedId);
                   setStepSelect(selectedObj);
                 }}
               >
-                <option value="">Selecione...</option>
+                <option value={selectedStep.id}>{!stepSelect.length ? selectedStep.name : 'Selecione...'}</option>
 
                 {steps
-                .filter((step)=> step.kanban_id === kanbanSelect.id)
+                .filter((step)=> step.kanban_id === kanbanSelect.id && step.public)
                 .map((kan) => (
                   <option key={kan.id} value={kan.id}>
                     {kan.name}

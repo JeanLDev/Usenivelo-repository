@@ -18,8 +18,7 @@ import { uploadFileToSupabase } from "@/lib/uploadFile";
 
 // --- Componente principal --- //
 export default function RecordShared({ fields = [], subFields = [], submodule_id , record=[],fetchRecords, onClose, isOpen,page, shared, creating, limiteAtingido,
-logoUrl, userFieldsData, companyFieldsData,user,company, form_type, formConfig}) {
-
+logoUrl, userFieldsData, companyFieldsData,user,company, form_type, formConfig, sendForKanban,stepSelect,  userLogado}) {
 
   const { toast } = useToast();
   const LOCAL_CACHE_KEY = `formulaCache_${submodule_id || "default"}`;
@@ -438,14 +437,12 @@ const handleChange = (name, value) => {
 
 
 
-
 /**
  * Mapeia dados dinâmicos para o formato da tabela "transactions"
  * @param {Object} data - Dados vindos do formulário (ex: fields)
  * @param {String} submoduleName - Nome do submódulo (vira a categoria)
  */
 
- 
   // Salvar registro
   const handleSave = async () => {
   setLoading(true);
@@ -467,46 +464,53 @@ const handleChange = (name, value) => {
     }
 
     // 🔹 payload final com URLs já substituídas
-    const payload = { data: updatedData };
+    const payload = {
+        data: {
+          ...(sendForKanban ? { title: submodule.name } : {}),
+          ...updatedData
+        }
+      };
 
-    if (record?.id) {
-      // Atualiza registro existente
-      const { error } = await supabase
-        .from("submodule_records")
-        .update({
+
+    // Cria novo registro
+    const {data:dbRecord, error } = await supabase
+      .from("submodule_records")
+      .insert([
+        {
+          submodule_id,
           ...payload,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", record.id);
+          created_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+      .single()
 
-      if (error) throw error;
+    if (error) throw error;
 
-      toast({
-        title: 'Registro Atualizado',
-        description: 'Registro atualizado com sucesso!',
-      });
-
-      // Atualiza localmente o registro aberto
-      setRecordsData(prev => ({ ...prev, data: { ...prev.data, ...updatedData } }));
-    } else {
-      // Cria novo registro
+      //envia para kanban
+    if (sendForKanban) {
+      console.log('kanban')
       const { error } = await supabase
-        .from("submodule_records")
-        .insert([
-          {
-            submodule_id,
+      .from("kanban_cards")
+      .insert([
+        {
+          step_id: stepSelect,
+          created_by: userLogado.id,
+          record_id: dbRecord.id,
+          submodule_id,
             ...payload,
-            created_at: new Date().toISOString(),
-          },
-        ]);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Registro Criado',
-        description: 'Registro salvo com sucesso!',
-      });
+          created_at: new Date().toISOString(),
+        }
+      ])
+      if(error) throw error
     }
+   
+
+    toast({
+      title: 'Registro Criado',
+      description: 'Registro salvo com sucesso!',
+    });
+    
 
     // Atualiza lista local
     await fetchRecords && fetchRecords();
@@ -603,7 +607,7 @@ const handleChange = (name, value) => {
       onClick={onClose}
     >
       <div
-        className="relative dark:bg-gray-800 sm:shadow-2xl w-full max-w-4xl sm:rounded-2xl transform transition-all duration-300 motion-safe:animate-fadeIn overflow-hidden shadow-lg bg-gray-100 "
+        className="relative dark:bg-gray-800 sm:shadow-2xl w-full max-w-4xl sm:rounded-sm transform transition-all duration-300 motion-safe:animate-fadeIn overflow-hidden shadow-lg bg-gray-100 "
         onClick={(e) => e.stopPropagation()}
       >
         {/* Conteúdo com rolagem */}
