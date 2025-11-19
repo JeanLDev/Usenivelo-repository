@@ -305,7 +305,7 @@ const DashboardLayout = ({ children }) => {
           </div>
         </header>
         {!user.email_confirmed_at && <EmailConfirmationAlert />}
-        <main className="flex-1 p-6 overflow-auto">{children}</main>
+        <main className="flex-1 overflow-auto">{children}</main>
       </motion.div>
 
       {/* Modal */}

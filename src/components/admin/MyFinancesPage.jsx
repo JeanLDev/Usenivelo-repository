@@ -490,7 +490,7 @@ const fetchFields = async () => {
   }
 
   return (
-    <div className="space-y-6" key={refreshKey}>
+    <div className="space-y-6 p-6" key={refreshKey}>
       {/* Cabeçalho */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}

@@ -42,6 +42,7 @@ export default function CardRastreio({ card, etapa }) {
                       className="border border-nested-border rounded-md p-3 bg-nested-item hover:bg-muted/50 transition-colors"
                     >
                       {/* Item title */}
+                      
                       <p className="font-medium text-sm text-foreground mb-2">
                         {item.data?.nome ||
                           item.data?.name ||

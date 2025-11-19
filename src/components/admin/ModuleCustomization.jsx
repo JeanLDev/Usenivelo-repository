@@ -413,7 +413,7 @@ const steps = [
   return (
     <>
     {!modules.length ?
-      <div className="flex items-center justify-center h-screen bg-gray-50">
+      <div className="flex items-center justify-center h-screen bg-gray-50 p-6">
         <div className="text-center space-y-4">
           <h1 className="text-2xl font-semibold text-gray-700">Crie seu Primeiro Módulo</h1>
           <p className="text-gray-400">Adicione um módulo para começar a organizar seus dados.</p>
@@ -427,7 +427,7 @@ const steps = [
         </div>
       </div>
       :
-      <div className="space-y-6">
+      <div className="space-y-6 p-6">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}

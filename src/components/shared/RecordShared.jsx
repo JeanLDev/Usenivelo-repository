@@ -11,6 +11,7 @@ import ConfirmationTemplate from "../admin/SubmoduleCRUDconfig/templates/Confirm
 import FileInput from "../admin/Inputs/FileInput";
 import LimitReachedFullScreen from "../admin/SubmoduleCRUDconfig/templates/LimitReachedFullScreen";
 import { uploadFileToSupabase } from "@/lib/uploadFile";
+import { useNavigate } from "react-router-dom";
 
 // --- Funções utilitárias --- //
 
@@ -34,7 +35,7 @@ logoUrl, userFieldsData, companyFieldsData,user,company, form_type, formConfig, 
   const [relatedRecords, setRelatedRecords] = useState({});
   const CONFIRMATION_KEY = `confirmation_submodule_${submodule_id}`;
   const {title, message, subtitle} = formConfig.length > 0 && formConfig[0].template_data
-
+  const navigate = useNavigate();
 
 function calculateField(field, recordData) {
   
@@ -815,7 +816,13 @@ const handleChange = (name, value) => {
               Fechar
             </Button>}
             <Button
-              onClick={handleSave}
+              onClick={()=>{
+                if(sendForKanban && !userLogado) {
+                  navigate('/login')
+                } else {
+                  handleSave()
+                }
+              }}
               disabled={loading || calculating || !isFormValid}
               className="w-full sm:w-auto bg-green-600 hover:bg-green-500 text-white px-6 py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-md transition-all hover:shadow-lg"
             >

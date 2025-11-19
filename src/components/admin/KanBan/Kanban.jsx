@@ -499,7 +499,7 @@ const handleRenameStep = async (stepId) => {
 
     // ------------------- RENDER -------------------
     return (
-      <div className=" space-y-4">
+      <div className=" space-y-4 p-1">
        {/* CABEÇALHO */}
 <div className="p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center rounded-sm 
                 bg-gradient-to-r from-[#7928CA] to-[#007CF0] shadow-md gap-2 sm:gap-0">
@@ -599,7 +599,7 @@ const handleRenameStep = async (stepId) => {
               <Droppable droppableId={column.id} key={column.id} isDropDisabled={!canMoveStep}>
                 {provided => (
                   <div ref={provided.innerRef} {...provided.droppableProps} className={`flex-shrink-0 
-                   rounded-md  w-80 space-y-2 pb-5`}
+                   rounded-md  w-72 space-y-2 pb-5`}
                    style={{ backgroundColor: `${color}60` }}
                    >
                     <div className={`flex justify-between items-center mb-2  p-5 shadow-md border border-gray-300 rounded-sm z-20`}
