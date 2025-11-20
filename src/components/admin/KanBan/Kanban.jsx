@@ -1,16 +1,20 @@
-  import React, { useState, useEffect } from "react";
+  import React, { useState, useEffect, act } from "react";
   import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
   import { Button } from "@/components/ui/button";
-  import { Loader2, MoreVertical, Plus, PlusCircle, Settings, ShieldCheck, User } from "lucide-react";
+  import { FilterIcon, Loader2, MoreVertical, Plus, PlusCircle, Settings, ShieldCheck, User } from "lucide-react";
   import { Link, useParams } from "react-router-dom";
   import { supabase } from "@/lib/customSupabaseClient";
   import { useNavigate } from "react-router-dom";
   import {useToast} from "@/components/ui/use-toast"
-  import ShareDropdown from "./ShareDropdown";
+  import ShareDropdown from "./components/ShareDropdown";
   import KanbanCardModal from "./KanbanCardModal";
   import { useDashboard } from '@/contexts/DashboardContext';
 import { SplitButton } from "./components/buttonNewCard";
 import KanbanCard from "./KanbanCard";
+import FilterIconDropdownKanban from "./components/FilterIconDropdownKanban";
+import DateRangePicker from "./components/CalendarioRangeDropdown";
+import DateDurationSelector from "./components/CalendarioRangeDropdown";
+import CalendarioRangeDropdown from "./components/CalendarioRangeDropdown";
 
   const Modal = ({ isOpen, onClose, title, children, size='4xl' }) => {
     if (!isOpen) return null;
@@ -54,6 +58,11 @@ import KanbanCard from "./KanbanCard";
     const [onlyView, setOnlyView] = useState(false)
     const [openCreateStepKanban, setOpenCreateStepKanban] = useState(false)
     const [newKanbanName, setNewKanbanName] = useState('')
+    const [periodo, setPeriodo] = useState({ start: null, end: null });
+    const [activeFilter, setActiveFilter] = useState([])
+    function toDateOnlyString(date) {
+      return new Date(date).toISOString().split("T")[0];
+    }
 
     
     // ------------------- FETCH -------------------
@@ -354,6 +363,7 @@ import KanbanCard from "./KanbanCard";
 
     };
 
+    
 
 
     // ------------------- TOGGLE PERMISSÕES -------------------
@@ -401,23 +411,7 @@ import KanbanCard from "./KanbanCard";
         setSubmoduleName(sub.name)
         setOpenRecordModal(true)
     };
-function formatISODate(isoString) {
-  if (!isoString) return "";
 
-  const date = new Date(isoString);
-
-  const pad = (n) => String(n).padStart(2, "0");
-
-  const day = pad(date.getDate());
-  const month = pad(date.getMonth() + 1);
-  const year = date.getFullYear();
-
-  const hours = pad(date.getHours());
-  const minutes = pad(date.getMinutes());
-  const seconds = pad(date.getSeconds());
-
-  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-}
 
 const [editingTitle, setEditingTitle] = useState(null);
 const [editTitleValue, setEditTitleValue] = useState("");
@@ -475,6 +469,33 @@ const handleRenameStep = async (stepId) => {
       </div>
     );
   }
+const cardIds = Object.keys(cardsData || {});
+
+// junta todos os campos de todos os cards
+let camposSet = new Set();
+
+// sempre incluir o id
+camposSet.add("id");
+
+cardIds.forEach((id) => {
+  const card = cardsData[id];
+  if (!card || typeof card.data !== "object" || card.data === null) return;
+
+  Object.entries(card.data).forEach(([key, value]) => {
+    // ignorar chave especial
+    if (key === "__submoduleName") return;
+
+    // aceitar apenas valores primitivos (string, number, boolean)
+    if (["string", "number", "boolean"].includes(typeof value)) {
+      camposSet.add(key);
+    }
+  });
+});
+
+// converte o Set para array final
+const camposDoCard = Array.from(camposSet);
+
+
 
 
   // Filtra as etapas que o usuário tem permissão ou que ele é dono
@@ -528,11 +549,25 @@ const handleRenameStep = async (stepId) => {
       <PlusCircle className="mr-2"/> Novo
     </Button>
   </div>
-
-
   {/* Botões do proprietário */}
   {user.id === kanban.user_id && (
     <div className="flex items-center mt-2 sm:mt-0 space-x-2 flex-wrap">
+
+       <CalendarioRangeDropdown
+        initialRange={periodo}
+        onChange={(r) => {
+          setPeriodo(r);
+          // aqui você pode refazer consulta ao supabase filtrando por data
+        }}
+      />
+
+      <FilterIconDropdownKanban
+        columns={camposDoCard} 
+        onApply={(filter) => {
+          // aqui você aplica o filtro no Kanban
+          setActiveFilter(filter);
+        }}
+      />
       <ShareDropdown
         shared={kanban.share}
         onOpenShareModal={() => setShareModalOpen(true)}
@@ -558,7 +593,7 @@ const handleRenameStep = async (stepId) => {
 
         {/* KANBAN */}
         <DragDropContext onDragEnd={onDragEnd}>
-          <div className={`flex gap-4 overflow-x-auto min-h-[100vh] `}>
+          <div className={`mx-0 sm:mx-0 md:mx-3 flex gap-4 overflow-x-auto min-h-[100vh] `}>
             {columnsData.columnOrder.map(columnId => {
             const column = columnsData.columns[columnId];
             const step = steps.find(s => s.id === column.id);
@@ -704,35 +739,94 @@ const handleRenameStep = async (stepId) => {
                         )}
                     </div>
 
-                    {/* CARDS */}
-                    {column.cardIds.map((cardId, index) => (
-                    <KanbanCard
-                      key={cardId}
-                      card={cardsData[cardId]}
-                      index={index}
-                      canMoveStep={canMoveStep}
-                      usuarios={usuarios}
-                      companies={companies}
-                      submodules={submodules}
-                      step={step}
-                      canView={canView}
-                      canEdit={canEdit}
-                      canDelete={canDelete}
-                      openMenuCardId={openMenuCardId}
-                      setOpenMenuCardId={setOpenMenuCardId}
-                      selectSubmoduleButton={selectSubmoduleButton}
-                      setRecord={setRecord}
-                      setCanEdit={setCanEdit}
-                      setOnlyView={setOnlyView}
-                      handleReloadKanban={handleReloadKanban}
-                      supabase={supabase}
-                    />
-                  ))}
+                    {column.cardIds
+  .filter((cardId) => {
+    const card = cardsData[cardId];
+    if (!card) return false;
+
+    // ----------------------------------
+    //  FILTRO POR CAMPO (activeFilter)
+    // ----------------------------------
+    if (activeFilter?.column && activeFilter?.value) {
+      const fieldValue = card.data?.[activeFilter.column];
+      const fv = fieldValue?.toString().toLowerCase() ?? "";
+      const filterVal = activeFilter.value.toLowerCase();
+
+      switch (activeFilter.operator) {
+        case "=": // igual
+          if (fv !== filterVal) return false;
+          break;
+
+        case "!=": // diferente
+          if (fv === filterVal) return false;
+          break;
+
+        case "contains": // contém
+          if (!fv.includes(filterVal)) return false;
+          break;
+
+        case ">": // maior que (número)
+          if (Number(fieldValue) <= Number(activeFilter.value)) return false;
+          break;
+
+        case "<": // menor que (número)
+          if (Number(fieldValue) >= Number(activeFilter.value)) return false;
+          break;
+
+        default:
+          break;
+      }
+    }
+
+    // ----------------------------------
+    //  FILTRO POR DATA (periodo)
+    // ----------------------------------
+    const dataCard = toDateOnlyString(card.created_at);
+
+    const start = periodo.start ? toDateOnlyString(periodo.start) : null;
+    const end = periodo.end ? toDateOnlyString(periodo.end) : null;
+
+    // sem filtro de data
+    if (!start && !end) return true;
+
+    // um único dia
+    if (start && !end) {
+      return dataCard === start;
+    }
+
+    // intervalo
+    if (start && end) {
+      return dataCard >= start && dataCard <= end;
+    }
+
+    return true;
+  })
+  .map((cardId, index) => (
+    <KanbanCard
+      key={cardId}
+      card={cardsData[cardId]}
+      index={index}
+      canMoveStep={canMoveStep}
+      usuarios={usuarios}
+      companies={companies}
+      submodules={submodules}
+      step={step}
+      canView={canView}
+      canEdit={canEdit}
+      canDelete={canDelete}
+      openMenuCardId={openMenuCardId}
+      setOpenMenuCardId={setOpenMenuCardId}
+      selectSubmoduleButton={selectSubmoduleButton}
+      setRecord={setRecord}
+      setCanEdit={setCanEdit}
+      setOnlyView={setOnlyView}
+      handleReloadKanban={handleReloadKanban}
+      supabase={supabase}
+    />
+  ))}
+{provided.placeholder}
 
 
-
-
-                    {provided.placeholder}
                   </div>
                 )}
               </Droppable>

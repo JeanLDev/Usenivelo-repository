@@ -4,17 +4,13 @@ import { Save, User, FileText, ChevronDown, ChevronUp, ArrowLeftSquare, ArrowLef
 import { useParams } from "react-router-dom";
 import { Switch } from "@/components/ui/switch";
 import {Label} from "@/components/ui/label"
+import {useToast} from "@/components/ui/use-toast"
 
 export default function PermissionCard({setNewPermission, fetchSteps, step}) {
   const [selectedUserEmail, setSelectedUserEmail] = useState("");
-  const {kanban_id} = useParams()
   const [submodules, setSubmodules] = useState([]);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [formPermissions, setFormPermissions] = useState({});
-  const [role, setRole] = useState("");
-  const [note, setNote] = useState("");
-  const [user, setUser] = useState({})
-
+  const {toast} = useToast();
   const [move, setMove] = useState(false)
   const [edit, setEdit] = useState(false)
   const [view, setView] = useState(false)
@@ -103,7 +99,7 @@ export default function PermissionCard({setNewPermission, fetchSteps, step}) {
       .single();
 
     if (userError || !userdB) {
-      console.error("Usuário não encontrado");
+       toast({ title: 'Erro', description: 'Usuário não encontrado' });
       return;
     }
     const payload = {
@@ -121,8 +117,11 @@ export default function PermissionCard({setNewPermission, fetchSteps, step}) {
       .insert(payload);
 
     if (error) console.error("Erro ao salvar permissões:", error);
+
     else console.log("Permissões salvas:", data);
+    toast({ title: 'Sucesso!', description: 'Usuário Adicionado!' });
     fetchSteps()
+    setNewPermission()
   };
 
 
@@ -136,7 +135,7 @@ export default function PermissionCard({setNewPermission, fetchSteps, step}) {
           </div>
           <div>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Atribuir permissões</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Escolha um usuário, cargo e permissões por submodule.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Escolha um usuário.</p>
           </div>
         </div>
         {/* Usuário */}
@@ -148,15 +147,6 @@ export default function PermissionCard({setNewPermission, fetchSteps, step}) {
           onChange={e => setSelectedUserEmail(e.target.value)}
           placeholder="Digite o email do usuário"
         />
-        {step && 
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Etapa</label>
-          <input
-            type="text"
-            className="w-full rounded-lg p-2 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm mt-2 mb-4"
-            value={step.name}
-          />
-        </div>}
         <div className="flex space-x-4">
             <div className="flex flex-col">
               <Label>Mover</Label>

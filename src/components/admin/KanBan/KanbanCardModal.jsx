@@ -407,23 +407,7 @@ const renderInput = (field) => {
       >
         <div className="flex items-center justify-between">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{field.name}</label>
-          {/* Controles de cor */}
-          <div className="flex flex-wrap gap-2 items-center ml-3">
-            <label className="text-sm text-gray-600">bg:</label>
-            <input
-              type="color"
-              value={bgColor}
-              onChange={(e) => setBgColor(e.target.value)}
-              className="w-5 h-5 cursor-pointer border rounded"
-            />
-            <label className="text-sm text-gray-600 ml-3">text:</label>
-            <input
-              type="color"
-              value={textColor}
-              onChange={(e) => setTextColor(e.target.value)}
-              className="w-5 h-5 cursor-pointer border rounded"
-            />
-          </div>
+          
         </div>
 
       {/* Textarea personalizada */}
@@ -764,10 +748,10 @@ const handleDescriptionChange = (value) => {
 >
   <div
     onClick={(e) => e.stopPropagation()}
-    className="relative w-full max-w-5xl bg-white dark:bg-gray-900 rounded-lg shadow-2xl flex flex-col md:flex-row overflow-y-auto max-h-[95vh] md:overflow-hidden animate-fadeIn mx-2 mb-8 mt-0 pb-8"
+    className="relative w-full max-w-5xl bg-white dark:bg-gray-900 rounded-lg shadow-2xl flex flex-col md:flex-row overflow-y-auto max-h-[95vh] md:overflow-hidden animate-fadeIn mx-1 mb-8 mt-0 pb-8"
   >
     {/* COLUNA PRINCIPAL (ESQUERDA) */}
-    <div className="flex-1 px-6 py-6 md:overflow-y-auto ">
+    <div className="flex-1 px-3 sm:px-2 md:px-6 py-6 md:overflow-y-auto ">
 
       {/* Título */}
       <div className="flex items-center justify-between  pb-4 mb-4 w-full">

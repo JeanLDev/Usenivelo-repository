@@ -26,6 +26,7 @@ export function RecordRelationField({
 
   const defaultConfig = field.relatedConfigs?.find((rc) => rc.defaultValue);
 
+
   const hasPriceField =
     field.relatedConfigs?.[0]?.fieldNames?.some((fn) =>
       ["preço", "valor", "total"].some((keyword) => fn.toLowerCase().includes(keyword))
@@ -110,7 +111,7 @@ export function RecordRelationField({
       );
     });
   };
-  if (defaultConfig.defaultValue) {
+  if (defaultConfig && defaultConfig.defaultValue) {
     return (
       <div>
         <PixCopyCard pixCode={defaultConfig.defaultValue} title={field.name}/>

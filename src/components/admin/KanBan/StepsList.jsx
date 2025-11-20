@@ -402,18 +402,7 @@
                                     .eq("step_id", user.step_id)
                                     .eq("user_id", user.user_id);
 
-                                  setSteps((prevSteps) =>
-                                    prevSteps.map((s) => {
-                                      if (s.id !== etapa.id) return s;
-                                      return {
-                                        ...s,
-                                        usuarios: (s.usuarios || []).filter(
-                                          (u) =>
-                                            u.user_id !== user.user_id
-                                        ),
-                                      };
-                                    })
-                                  );
+                                  fetchSteps()
                                 }}
                               >
                                 <Trash2 className="w-4 h-4" />

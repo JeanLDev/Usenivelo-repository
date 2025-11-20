@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Share2, Copy, Check, ExternalLink } from "lucide-react";
+import { Share2, Copy, Check, ExternalLink, X } from "lucide-react";
 
 export default function ShareDropdown({
   shared = false,
@@ -10,9 +10,19 @@ export default function ShareDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [openToLeft, setOpenToLeft] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const rootRef = useRef(null);
 
-  // fecha clicando fora
+  // detecta mobile
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // fecha clicando fora ou Esc
   useEffect(() => {
     const handleDoc = (e) => {
       if (!rootRef.current) return;
@@ -26,6 +36,17 @@ export default function ShareDropdown({
       document.removeEventListener("keydown", handleDoc);
     };
   }, []);
+
+  // calcula direção quando abre (desktop)
+  useEffect(() => {
+    if (!open || isMobile) return;
+    if (rootRef.current) {
+      const rect = rootRef.current.getBoundingClientRect();
+      const dropdownWidth = 240;
+      const spaceRight = window.innerWidth - rect.right;
+      setOpenToLeft(spaceRight > dropdownWidth);
+    }
+  }, [open, isMobile]);
 
   const handleCopy = async () => {
     try {
@@ -51,17 +72,22 @@ export default function ShareDropdown({
         className="flex items-center gap-2"
       >
         <Share2 className="w-4 h-4" />
-        
       </Button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
+        <div
+          className={`
+            bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50
+            ${isMobile 
+              ? "fixed left-1/2 top-24 -translate-x-1/2 w-[90%] max-w-sm p-3"
+              : `absolute mt-2 w-60 p-2 ${openToLeft ? "left-0" : "right-0"}`
+            }
+          `}
+        >
           <div className="py-2 space-y-1">
 
             {/* Toggle compartilhamento */}
-            <label
-              className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
+            <label className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700">
               <input
                 type="checkbox"
                 checked={shared}
