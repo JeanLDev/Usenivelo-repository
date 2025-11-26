@@ -22,7 +22,7 @@ export function SplitButton({ mainLabel, onMainClick, options, onSelect }) {
     {/* Botão principal com tons neutros */}
     <button
       onClick={onMainClick}
-      className={`bg-white/50 border-b border-l border-r border-gray-300  text-gray-800 px-3 py-1 font-medium shadow-sm hover:shadow-md transition-all duration-200 w-full
+      className={`bg-white/50 border-b border-l border-r border-gray-300  text-gray-800 px-3 py-1 font-medium shadow-sm hover:bg-[lightgreen] hover:text-white transition-all duration-200 w-full
         ${options.length > 0 ? "rounded-bl-md" : "rounded-md"}`}
     >
       <span className="flex justify-center items-center"><PlusCircle className="mr-1 w-4 h-4"/> {mainLabel}</span>
