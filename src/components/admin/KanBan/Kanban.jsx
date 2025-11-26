@@ -235,222 +235,155 @@ import CalendarioRangeDropdown from "./components/CalendarioRangeDropdown";
   };
 
 
+
+    //carrega estado inicial
     const loadKanbanBasic = async (kanban_id, setSteps, setCardsData, setColumnsData) => {
-      try {
+try {
+  const { data: stepsData } = await supabase
+    .from("kanban_steps")
+    .select("*")
+    .eq("kanban_id", kanban_id)
+    .order("position", { ascending: true });
 
-        // Buscar Steps
-        const { data: stepsData } = await supabase
-          .from("kanban_steps")
-          .select("*")
-          .eq("kanban_id", kanban_id)
-          .order("position", { ascending: true });
+  if (!stepsData) return;
 
-        if (!stepsData) return;
+  const { data: cards } = await supabase
+    .from("kanban_cards")
+    .select("*")
+    .in("step_id", stepsData.map(s => s.id));
 
-        // Buscar Cards
-        const { data: cards } = await supabase
-          .from("kanban_cards")
-          .select("*")
-          .in("step_id", stepsData.map(s => s.id));
+  const columns = {};
+  const columnOrder = [];
+  stepsData.forEach(step => {
+    columns[step.id] = { id: step.id, title: step.name, cardIds: [], color: step.color };
+    columnOrder.push(step.id);
+  });
 
-        // Montar estrutura de colunas
-        const columns = {};
-        const columnOrder = [];
+  const cardsMap = {};
+  cards?.forEach(card => {
+    cardsMap[card.id] = card;
+    columns[card.step_id]?.cardIds.push(card.id);
+  });
 
-        stepsData.forEach(step => {
-          columns[step.id] = { id: step.id, title: step.name, cardIds: [], color: step.color  };
-          columnOrder.push(step.id);
-        });
-
-        // Montar cardsData e distribuir nos steps
-        const cardsMap = {};
-        cards?.forEach(card => {
-          if (!cardsMap[card.id]) {
-            cardsMap[card.id] = card;
-            columns[card.step_id]?.cardIds.push(card.id);
-          }
-        });
-
-        // Atualizar estados do Kanban
-        setSteps(stepsData);
-        setCardsData(cardsMap);
-        setColumnsData({ columns, columnOrder });
-
-      } catch (err) {
-        console.error("Erro ao carregar kanban:", err);
-      }
+  setSteps(stepsData);
+  setCardsData(cardsMap);
+  setColumnsData({ columns, columnOrder });
+} catch (err) {
+  console.error("Erro ao carregar kanban:", err);
+}
     };
+    //função arrasta e solta
+    const onDragEnd = async (result) => {
+  const { destination, source, draggableId } = result;
+  if (!destination) return;
+  if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+
+  const start = columnsData.columns[source.droppableId];
+  const finish = columnsData.columns[destination.droppableId];
+
+  const newColumns = { ...columnsData.columns };
+
+  // MESMA COLUNA → apenas rearranjar no array
+  if (start.id === finish.id) {
+    const newCardIds = Array.from(start.cardIds);
+    const [moved] = newCardIds.splice(source.index, 1);
+    newCardIds.splice(destination.index, 0, moved);
+
+    newColumns[start.id] = { ...start, cardIds: newCardIds };
+    setColumnsData(prev => ({ ...prev, columns: newColumns }));
+
+    // Atualiza posições no banco
+    const updates = newCardIds.map((id, idx) => ({ id, position: idx + 1 }));
+    for (let u of updates) {
+      await supabase.from("kanban_cards").update({ position: u.position }).eq("id", u.id);
+    }
+
+    return;
+  }
+
+  // COLUNA DIFERENTE → remove da start, adiciona na finish
+  const newStartIds = Array.from(start.cardIds);
+  newStartIds.splice(source.index, 1);
+
+  const newFinishIds = Array.from(finish.cardIds);
+  newFinishIds.splice(destination.index, 0, draggableId);
+
+  newColumns[start.id] = { ...start, cardIds: newStartIds };
+  newColumns[finish.id] = { ...finish, cardIds: newFinishIds };
+
+  setColumnsData(prev => ({ ...prev, columns: newColumns }));
+
+  try {
+    // Atualiza step_id do card movido
+    await supabase.from("kanban_cards").update({ step_id: finish.id }).eq("id", draggableId);
+
+    // Atualiza posições nas duas colunas
+    const startUpdates = newStartIds.map((id, idx) => ({ id, position: idx + 1 }));
+    const finishUpdates = newFinishIds.map((id, idx) => ({ id, position: idx + 1 }));
+
+    for (let u of [...startUpdates, ...finishUpdates]) {
+      await supabase.from("kanban_cards").update({ position: u.position }).eq("id", u.id);
+    }
+  } catch (err) {
+    console.error("Erro ao atualizar kanban:", err);
+  }
+};
 
     const handleReloadKanban = () => {
       loadKanbanBasic(kanban_id, setSteps, setCardsData, setColumnsData);
     };
+    //escutar mudanças no db (realtime)
+   useEffect(() => {
+  const subscription = supabase
+    .channel('public:kanban_cards')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'kanban_cards' },
+      (payload) => {
+        const card = payload.new;
+        if (!card) return;
+
+        // 🔹 Ignora updates que só alteram position
+        const oldCard = payload.old;
+        if (oldCard && card.position !== undefined && card.step_id === oldCard.step_id) {
+          // nada mudou exceto posição → ignorar
+          return;
+        }
+
+        // Atualiza card no estado
+        setCardsData(prev => ({ ...prev, [card.id]: card }));
+
+        // Atualiza colunas caso o card tenha mudado de step
+        setColumnsData(prev => {
+          const newColumns = { ...prev.columns };
+          Object.values(newColumns).forEach(col => {
+            col.cardIds = col.cardIds.filter(id => id !== card.id);
+          });
+          newColumns[card.step_id]?.cardIds.push(card.id);
+          return { ...prev, columns: newColumns };
+        });
+      }
+    )
+    .subscribe();
+
+  return () => supabase.removeChannel(subscription);
+}, [kanban_id]);
 
 
-    //fetch principal
+
+
+
+
+
+//fetch principal
     useEffect(() => {
       fetchData();
     }, [kanban_id]);
-    //escutar mudanças no db
-    useEffect(() => {
-      const subscription = supabase
-        .channel('public:kanban_cards')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'kanban_cards' },
-          (payload) => {
-            // Apenas recarrega sempre que houver alteração
-            console.log('Change received!', payload);
-            handleReloadKanban();
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(subscription);
-      };
-    }, [kanban_id]);
-
-
     // ------------------- DRAG & DROP -------------------
-  const onDragEnd = async (result) => {
-  const { destination, source, draggableId } = result;
-  if (!destination) return;
-  if (
-    destination.droppableId === source.droppableId &&
-    destination.index === source.index
-  ) return;
-
-  // 1️⃣ Obtém colunas e cards atuais
-  const start = columnsData.columns[source.droppableId];
-  const finish = columnsData.columns[destination.droppableId];
-
-  // 2️⃣ Filtra cards visíveis considerando filtros e período
-  const filterVisibleCards = (cardIds) => {
-    return cardIds
-      .map(id => cardsData[id])
-      .filter(Boolean)
-      .filter(card => {
-        // Filtro por activeFilter
-        if (activeFilter?.column && activeFilter?.value) {
-          const fieldValue = card.data?.[activeFilter.column];
-          const values = Array.isArray(fieldValue) ? fieldValue.map(v => (v?.data?.nome || v?.nome || v)) : [fieldValue];
-          const filterVal = activeFilter.value.toString().toLowerCase();
-          const matches = values.some(v => {
-            const fv = (v?.toString() || "").toLowerCase();
-            switch (activeFilter.operator) {
-              case "=": return fv === filterVal;
-              case "!=": return fv !== filterVal;
-              case "contains": return fv.includes(filterVal);
-              case ">": return Number(fv) > Number(filterVal);
-              case "<": return Number(fv) < Number(fv);
-              default: return false;
-            }
-          });
-          if (!matches) return false;
-        }
-
-        // Filtro por período
-        const dataCard = toDateOnlyString(card.created_at);
-        const startDate = periodo.start ? toDateOnlyString(periodo.start) : null;
-        const endDate = periodo.end ? toDateOnlyString(periodo.end) : null;
-        if (startDate && endDate) return dataCard >= startDate && dataCard <= endDate;
-        if (startDate && !endDate) return dataCard === startDate;
-        return true;
-      });
-  };
-
-  // -------------------------------
-  // MOVENDO NA MESMA COLUNA
-  // -------------------------------
-  if (start === finish) {
-    const visibleCards = filterVisibleCards(start.cardIds);
-    const newCardIds = Array.from(start.cardIds);
-
-    // Reposiciona apenas o draggableId dentro da coluna
-    const currentIndex = newCardIds.indexOf(draggableId);
-    if (currentIndex === -1) return; // segurança
-    newCardIds.splice(currentIndex, 1);
-    newCardIds.splice(destination.index, 0, draggableId);
-
-    const newColumn = { ...start, cardIds: newCardIds };
-    setColumnsData(prev => ({
-      ...prev,
-      columns: { ...prev.columns, [newColumn.id]: newColumn }
-    }));
-
-    // Atualiza posição sequencial
-    for (let i = 0; i < newCardIds.length; i++) {
-      const cardId = newCardIds[i];
-      setCardsData(prev => ({ ...prev, [cardId]: { ...prev[cardId], position: i + 1 } }));
-      const { error } = await supabase
-        .from("kanban_cards")
-        .update({ position: i + 1 })
-        .eq("id", cardId);
-      if (error) console.error("Erro ao atualizar posição na mesma coluna:", error);
-    }
-    return;
-  }
-
-  // -------------------------------
-  // MOVENDO ENTRE COLUNAS DIFERENTES
-  // -------------------------------
-  const newStartCardIds = Array.from(start.cardIds);
-  newStartCardIds.splice(source.index, 1);
-  const newFinishCardIds = Array.from(finish.cardIds);
-  newFinishCardIds.splice(destination.index, 0, draggableId);
-
-  const newStart = { ...start, cardIds: newStartCardIds };
-  const newFinish = { ...finish, cardIds: newFinishCardIds };
-
-  setColumnsData(prev => ({
-    ...prev,
-    columns: {
-      ...prev.columns,
-      [newStart.id]: newStart,
-      [newFinish.id]: newFinish
-    }
-  }));
-
-  // Atualiza cardsData local
-  setCardsData(prev => ({
-    ...prev,
-    [draggableId]: { ...prev[draggableId], step_id: finish.id }
-  }));
-
-  try {
-    // Atualiza step_id no Supabase
-    const { error: moveError } = await supabase
-      .from("kanban_cards")
-      .update({ step_id: finish.id })
-      .eq("id", draggableId);
-    if (moveError) console.error("Erro ao mover card:", moveError);
-
-    // Atualiza posições sequencialmente
-    const updatePositions = async (cardIds) => {
-      for (let i = 0; i < cardIds.length; i++) {
-        const cardId = cardIds[i];
-        setCardsData(prev => ({ ...prev, [cardId]: { ...prev[cardId], position: i + 1 } }));
-        const { error } = await supabase
-          .from("kanban_cards")
-          .update({ position: i + 1 })
-          .eq("id", cardId);
-        if (error) console.error("Erro ao atualizar posição:", error);
-      }
-    };
-
-    await updatePositions(newStartCardIds);
-    await updatePositions(newFinishCardIds);
-
-  } catch (err) {
-    console.error("Erro ao atualizar cards entre colunas:", err);
-  }
-};
+  
 
 
 
-
-
-    
 
 
     // ------------------- TOGGLE PERMISSÕES -------------------

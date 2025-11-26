@@ -100,22 +100,48 @@ export default function StepsList() {
   };
 
   const handleDragEnd = async (result) => {
-    if (!result.destination) return;
+  if (!result.destination) return;
 
-    const reordered = Array.from(normalizedSteps);
-    const [moved] = reordered.splice(result.source.index, 1);
-    reordered.splice(result.destination.index, 0, moved);
+  const sourceIndex = result.source.index;
+  const destIndex = result.destination.index;
 
-    const updated = reordered.map((s, index) => ({ ...s, position: index }));
-    setSteps(updated);
+  // usa normalizedSteps (já ordenado) como fonte de verdade para a UI
+  const current = Array.from(normalizedSteps);
 
-    await supabase
-      .from("kanban_steps")
-      .upsert(
-        updated.map((s) => ({ id: s.id, position: s.position })),
-        { onConflict: "id" }
-      );
-  };
+  // segurança: índices válidos
+  if (sourceIndex < 0 || sourceIndex >= current.length) return;
+  if (destIndex < 0 || destIndex > current.length) return;
+
+  // remove e insere na nova posição
+  const [moved] = current.splice(sourceIndex, 1);
+  current.splice(destIndex, 0, moved);
+
+  // cria array com novas posições (0-based, igual ao que você já usa)
+  const updated = current.map((s, idx) => ({ ...s, position: idx }));
+
+  // Atualiza UI de forma otimista
+  setSteps(updated);
+
+  // Salva sequencialmente no banco — evita condições de corrida
+  try {
+    for (let i = 0; i < updated.length; i++) {
+      const step = updated[i];
+      const { error } = await supabase
+        .from("kanban_steps")
+        .update({ position: step.position })
+        .eq("id", step.id);
+      if (error) throw error;
+    }
+
+    // Recarrega do DB para garantir consistência (opcional, mas seguro)
+    await fetchSteps();
+  } catch (err) {
+    console.error("Erro ao salvar posições das etapas:", err);
+    // Se algo deu errado, recarrega do banco para restaurar estado consistente
+    await fetchSteps();
+  }
+};
+
 
   const etapasComUsuarios = normalizedSteps.map((etapa) => {
     const permsDaEtapa = userPerms.filter((perm) => perm.step_id === etapa.id) || [];
