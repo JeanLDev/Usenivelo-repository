@@ -188,7 +188,7 @@ export default function CalendarioRangeDropdown({
     <div className="relative inline-block" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="px-2 py-2 rounded-md border border-gray-300 bg-white text-sm flex items-center gap-2"
+        className="px-2 py-2 rounded-md border border-gray-300 bg-white text-sm flex items-center gap-2 hover:opacity-80 transition-all duration-300"
       >
         <span className="text-xs text-gray-600">{displayText}</span>
       </button>

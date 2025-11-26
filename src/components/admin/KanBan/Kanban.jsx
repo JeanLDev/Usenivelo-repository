@@ -619,8 +619,8 @@ const camposDoCard = Array.from(camposSet);
     return (
       <div className=" space-y-4 p-1">
        {/* CABEÇALHO */}
-<div className="p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center rounded-sm 
-                bg-gradient-to-r from-[#7928CA] to-[#007CF0] shadow-md gap-2 sm:gap-0">
+<div className="p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center rounded-xl
+                bg-gradient-to-r from-[#7928CA] to-[#007CF0] gap-2 sm:gap-0 px-6">
   
   <div className="flex items-center">
     {/* Select do Kanban */}
@@ -756,7 +756,7 @@ const camposDoCard = Array.from(camposSet);
                               />
                             ) : (
                               <h2
-                                className="font-bold cursor-pointer hover:underline"
+                                className="text-gray-900 font-semibold tracking-wide cursor-pointer hover:underline "
                                 onClick={() => {
                                   setEditingTitle(column.id);
                                   setEditTitleValue(column.title);
@@ -802,7 +802,7 @@ const camposDoCard = Array.from(camposSet);
                                   selectSubmodule(sub, step.id)
                                   setRecord([])
                                 }}
-                                className="block w-full text-left px-3 py-2 hover:bg-gray-100"
+                                className="block w-full text-left px-3 py-2 hover:bg-gray"
                               >
                                 {sub.name}
                               </button>

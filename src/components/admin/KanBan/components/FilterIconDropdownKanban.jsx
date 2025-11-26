@@ -64,7 +64,7 @@ export default function FilterIconDropdownKanban({ columns = [], onApply }) {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="p-3 rounded-md border border-gray-300 bg-white hover:bg-gray-100 flex items-center"
+        className="p-3 rounded-md border border-gray-300 bg-white flex items-center hover:opacity-80 transition-all duration-300"
       >
         <Filter className="w-4 h-4" />
       </button>
@@ -73,7 +73,7 @@ export default function FilterIconDropdownKanban({ columns = [], onApply }) {
         <div
           ref={dropdownRef}
           className={`
-            bg-white border border-gray-300 shadow-lg rounded-lg p-3 z-50 w-64
+            bg-white border border-gray-300 shadow-lg rounded-lg p-3 z-50 w-64 hover:opacity-90 transition-all duration-300
 
             ${isMobile 
               ? `
