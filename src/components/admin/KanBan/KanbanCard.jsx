@@ -61,8 +61,10 @@ export default function KanbanCard({
           }}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          className="group relative p-3 rounded-lg border border-gray-300 bg-white shadow-md hover:shadow-md 
-            transition cursor-pointer select-none flex flex-col justify-between space-y-2 ml-2 mr-2 border border-gray-200 mb-4"
+          className="group relative p-3 rounded-lg border border-gray-300 bg-white 
+           shadow-sm hover:shadow-lg hover:scale-[1.02] 
+           transition-transform cursor-pointer select-none 
+           flex flex-col justify-between space-y-2 ml-2 mr-2 mb-4"
           onClick={() =>
             setOpenMenuCardId((prev) => (prev === card.id ? null : card.id))
           }
@@ -73,7 +75,8 @@ export default function KanbanCard({
               {avatar ? (
                 <img
                   src={avatar}
-                  className="w-10 h-10 border border-gray-300 rounded-full object-cover"
+                  className="w-10 h-10 border border-gray-300 rounded-full object-cover 
+                             transition-transform hover:scale-[1.05]"
                 />
               ) : (
                 <div className="w-6 h-6 border border-gray-200 rounded-full">
@@ -85,12 +88,12 @@ export default function KanbanCard({
             {/* Menu */}
             {openMenuCardId === card.id && (
               <div
-                className="absolute right-0 mt-1 w-28 bg-white border border-gray-200 shadow-lg rounded-md z-50"
+                className="absolute right-0 mt-1 w-28 bg-white border border-gray-200 shadow-lg rounded-md z-50 "
                 onClick={(e) => e.stopPropagation()} // previne fechar ao clicar dentro
               >
                 {canView && (
                   <button
-                    className="text-left w-full px-3 py-2 hover:bg-gray-100"
+                    className="text-left w-full px-3 py-2 hover:bg-gray-100 "
                     onClick={() => {
                       const sub = submodules.find((i) => i.id === card.submodule_id);
                       selectSubmoduleButton(sub ? sub : "main", step.id);
@@ -156,12 +159,12 @@ export default function KanbanCard({
           {/* Título / subtítulo */}
           <div className="flex flex-col w-full space-y-2">
             <div className="flex flex-col space-y-3 flex-1 min-w-0">
-              <div className="text-sm font-bold text-gray-800 whitespace-nowrap overflow-hidden text-ellipsis w-full mt-3">
+              <div className="text-sm font-bold text-gray-800 whitespace-nowrap overflow-hidden text-ellipsis w-full mt-3 transition-transform hover:scale-[1.03]">
                 {title}
               </div>
 
               {subtitle && (
-                <div className="text-xs text-gray-500 truncate max-w-[200px] overflow-hidden whitespace-nowrap">
+                <div className="text-xs text-gray-500 truncate max-w-[200px] overflow-hidden whitespace-nowrap transition-transform hover:scale-[1.03]">
                   {subtitle}
                 </div>
               )}
@@ -170,10 +173,10 @@ export default function KanbanCard({
             {/* Rodapé */}
             <div className="flex items-center pt-0.5 border-t space-x-1 mt-0.5">
               <div className="flex items-center gap-2 mt-2 text-xs text-gray-600">
-                <div className="flex items-center gap-1 text-xs text-gray-600">
+                <div className="flex items-center gap-1 text-xs text-gray-600 transition-transform hover:scale-[1.2]">
                   💬 {card.data?.comments?.length || 0}
                 </div>
-                <div className="flex text-xs text-gray-600">
+                <div className="flex text-xs text-gray-600 transition-transform hover:scale-[1.2]">
                   ✅ {card.data?.checklist?.filter((i) => i.done).length || 0}/
                   {card.data?.checklist?.length || 0}
                 </div>
