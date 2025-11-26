@@ -70,13 +70,13 @@ export default function ExtraFields({ formData, setFormData, renderInput, onlyVi
                 placeholder="Nome do campo"
                 value={newFieldName}
                 onChange={(e) => setNewFieldName(e.target.value)}
-                className="px-2 py-1 border rounded text-sm flex-1 dark:bg-gray-700"
+                className="px-2 py-1 border rounded text-sm flex-1 dark:bg-gray-700 w-[85%] w-max-[85%]"
                 disabled={onlyView}
                 />
                 <select
                 value={newFieldType}
                 onChange={(e) => setNewFieldType(e.target.value)}
-                className="px-2 py-1 border rounded text-sm dark:bg-gray-700"
+                className="px-2 py-1 border rounded text-sm dark:bg-gray-700 w-[15%] w-max-[15%]"
                 disabled={onlyView}
                 >
                 {FIELD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -84,10 +84,10 @@ export default function ExtraFields({ formData, setFormData, renderInput, onlyVi
                
                 <button
                 onClick={addField}
-                className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                className="px-1 py-1 bg-green-500 text-white rounded hover:bg-green-600"
                 disabled={onlyView}
                 >
-                Adicionar
+                <PlusCircle/>
                 </button>
                  <X
                  className="cursor-pointer"

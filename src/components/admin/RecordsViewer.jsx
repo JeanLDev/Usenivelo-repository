@@ -17,12 +17,22 @@ export default function RecordsTable({ records = [], fields = [] , subFields=[] 
 
   // --- Ordenação ---
   const sortedRecords = useMemo(() => {
-    return [...records].sort((a, b) => {
-      const dateA = new Date(a.data?.created_at || a.created_at);
-      const dateB = new Date(b.data?.created_at || b.created_at);
-      return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
-    });
-  }, [records, sortOrder]);
+  return [...records].sort((a, b) => {
+    // Ordena primeiro pelo position
+    const posA = a.position ?? 0; // caso position seja null/undefined
+    const posB = b.position ?? 0;
+
+    if (posA !== posB) {
+      return sortOrder === "asc" ? posA - posB : posB - posA;
+    }
+
+    // Se positions forem iguais, ordena por created_at
+    const dateA = new Date(a.data?.created_at || a.created_at);
+    const dateB = new Date(b.data?.created_at || b.created_at);
+    return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
+  });
+}, [records, sortOrder]);
+
 
   // --- Filtros ---
   const filteredRecords = useMemo(() => {
@@ -67,7 +77,6 @@ export default function RecordsTable({ records = [], fields = [] , subFields=[] 
   };
 
   const handleEditClick = (record) => {
-    console.log(record)
     setSelectedRecord(record);
     setShowMenu(null);
     setAction('editar')
@@ -105,29 +114,28 @@ export default function RecordsTable({ records = [], fields = [] , subFields=[] 
     <div className="max-w-full overflow-x-auto mt-4 min-h-[100vh]">
      {/* --- Filtros --- */}
     <DateFilterDropdown
-  onApply={(filters) => {
-    setFilterFrom(filters.from);
-    setFilterTo(filters.to);
-    setFilterMonth(filters.month);
-    setFilterDate(filters.date);
-    setSortOrder(filters.sortOrder);
-  }}
-  onClear={() => {
-    setFilterFrom("");
-    setFilterTo("");
-    setFilterMonth("");
-    setFilterDate("");
-    setSortOrder("desc");
-  }}
-  defaultFilters={{
-    from: filterFrom,
-    to: filterTo,
-    month: filterMonth,
-    date: filterDate,
-    sortOrder,
-  }}
-/>
-
+      onApply={(filters) => {
+        setFilterFrom(filters.from);
+        setFilterTo(filters.to);
+        setFilterMonth(filters.month);
+        setFilterDate(filters.date);
+        setSortOrder(filters.sortOrder);
+      }}
+      onClear={() => {
+        setFilterFrom("");
+        setFilterTo("");
+        setFilterMonth("");
+        setFilterDate("");
+        setSortOrder("desc");
+      }}
+      defaultFilters={{
+        from: filterFrom,
+        to: filterTo,
+        month: filterMonth,
+        date: filterDate,
+        sortOrder,
+      }}
+    />
 
 
       {/* --- Tabela Responsiva --- */}
@@ -169,62 +177,61 @@ export default function RecordsTable({ records = [], fields = [] , subFields=[] 
                   className="hover:bg-gray-50 transition-colors"
                 >
                 {fields
-        .filter(field => field.show_in_table)
-        .map((field) => {
-          const value = record.data?.[field.name];
+                  .filter(field => field.show_in_table)
+                  .map((field) => {
+                    const value = record.data?.[field.name];
+                    // 🧩 Caso o campo seja uma relação
+                    if (field.field_type === "relation") {
+                      const relatedItems = Array.isArray(value) ? value : [];
+                      const relConfig = field.relatedConfigs?.[0];
+                      let displayValue = "-";
 
-          // 🧩 Caso o campo seja uma relação
-          if (field.field_type === "relation") {
-            const relatedItems = Array.isArray(value) ? value : [];
-            const relConfig = field.relatedConfigs?.[0];
-            let displayValue = "-";
+                      if (relatedItems.length > 0) {
+                        const firstItem = relatedItems[0];
+                        const data = firstItem?.data || {};
 
-            if (relatedItems.length > 0) {
-              const firstItem = relatedItems[0];
-              const data = firstItem?.data || {};
+                        // 🔍 tenta achar um campo com "nome" (prioritário)
+                        const nomeKey = Object.keys(data).find(
+                          k => k.toLowerCase().includes("nome")
+                        );
 
-              // 🔍 tenta achar um campo com "nome" (prioritário)
-              const nomeKey = Object.keys(data).find(
-                k => k.toLowerCase().includes("nome")
-              );
+                        // 🧭 se não tiver "nome", usa o primeiro da configuração ou o primeiro disponível
+                        const mainFieldName =
+                          nomeKey || relConfig?.fieldNames?.[0] || Object.keys(data)[0];
 
-              // 🧭 se não tiver "nome", usa o primeiro da configuração ou o primeiro disponível
-              const mainFieldName =
-                nomeKey || relConfig?.fieldNames?.[0] || Object.keys(data)[0];
+                        const firstValue = data?.[mainFieldName] ?? "-";
 
-              const firstValue = data?.[mainFieldName] ?? "-";
+                        displayValue =
+                          relatedItems.length > 1 ? `${firstValue}…` : String(firstValue);
+                      }
 
-              displayValue =
-                relatedItems.length > 1 ? `${firstValue}…` : String(firstValue);
-            }
+                      return (
+                        <td
+                          key={field.id}
+                          className="px-4 py-3 border-b max-w-[250px] truncate"
+                          title={displayValue}
+                        >
+                          {displayValue}
+                        </td>
+                      );
+                    }
 
-            return (
-              <td
-                key={field.id}
-                className="px-4 py-3 border-b max-w-[250px] truncate"
-                title={displayValue}
-              >
-                {displayValue}
-              </td>
-            );
-          }
+                    // 🧮 Campos normais (texto, número, fórmula, etc)
+                    const displayValue =
+                      typeof value === "number"
+                        ? value.toFixed(0)
+                        : String(value ?? "-");
 
-          // 🧮 Campos normais (texto, número, fórmula, etc)
-          const displayValue =
-            typeof value === "number"
-              ? value.toFixed(0)
-              : String(value ?? "-");
-
-          return (
-            <td
-              key={field.id}
-              className="px-4 py-3 border-b max-w-[200px] truncate"
-              title={displayValue}
-            >
-              {displayValue}
-            </td>
-          );
-        })}
+                    return (
+                      <td
+                        key={field.id}
+                        className="px-4 py-3 border-b max-w-[200px] truncate"
+                        title={displayValue}
+                      >
+                        {displayValue}
+                      </td>
+                    );
+                  })}
 
 
 

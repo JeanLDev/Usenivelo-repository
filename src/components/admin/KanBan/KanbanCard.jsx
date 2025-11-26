@@ -68,7 +68,7 @@ export default function KanbanCard({
           }
         >
           {/* Top: avatar */}
-          <div className="flex justify-between items-start">
+          <div className="flex justify-between items-center">
             <div>
               {avatar ? (
                 <img
@@ -81,11 +81,22 @@ export default function KanbanCard({
                 </div>
               )}
             </div>
+            <div className="flex flex-col space-y-3 flex-1 min-w-0 ml-3">
+              <div className="text-sm font-bold text-gray-800 whitespace-nowrap overflow-hidden text-ellipsis w-full mt-3">
+                {title}
+              </div>
+
+              {subtitle && (
+                <div className="text-xs text-gray-500 truncate max-w-[200px] overflow-hidden whitespace-nowrap">
+                  {subtitle}
+                </div>
+              )}
+            </div>
 
             {/* Menu */}
             {openMenuCardId === card.id && (
               <div
-                className="absolute right-0 mt-1 w-28 bg-white border border-gray-200 shadow-lg rounded-md z-50"
+                className="absolute right-0 mt-10 w-28 bg-white border border-gray-200 shadow-lg rounded-md z-50"
                 onClick={(e) => e.stopPropagation()} // previne fechar ao clicar dentro
               >
                 {canView && (
@@ -155,17 +166,7 @@ export default function KanbanCard({
 
           {/* Título / subtítulo */}
           <div className="flex flex-col w-full space-y-2">
-            <div className="flex flex-col space-y-3 flex-1 min-w-0">
-              <div className="text-sm font-bold text-gray-800 whitespace-nowrap overflow-hidden text-ellipsis w-full mt-3">
-                {title}
-              </div>
-
-              {subtitle && (
-                <div className="text-xs text-gray-500 truncate max-w-[200px] overflow-hidden whitespace-nowrap">
-                  {subtitle}
-                </div>
-              )}
-            </div>
+            
 
             {/* Rodapé */}
             <div className="flex items-center pt-0.5 border-t space-x-1 mt-0.5">

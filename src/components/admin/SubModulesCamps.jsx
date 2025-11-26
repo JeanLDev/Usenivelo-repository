@@ -167,8 +167,7 @@ const handleDefaultChange = async (campo, idx, value) => {
 
   // Save Field
   const handleSaveField = async () => {
-
-  if (!newField.name || !newField.name.trim()) {
+  if (!newField.name?.trim()) {
     toast({ title: 'Erro', description: 'Nome do campo é obrigatório.' });
     return;
   }
@@ -178,163 +177,171 @@ const handleDefaultChange = async (campo, idx, value) => {
   try {
     let fieldId;
 
+    // ============================
+    // 1) Criar ou atualizar field
+    // ============================
     if (selectedField) {
-      // Atualizar campo existente
       const { data: updatedData, error: updateError } = await supabase
-        .from('submodule_fields')
+        .from("submodule_fields")
         .update({
-          name: newField.name, 
+          name: newField.name,
           field_type: newField.field_type,
-          operation: newField.operation ,
+          operation: newField.operation,
           formula: newField.formula,
-          limit:newField.limit
+          limit: newField.limit
         })
-        .eq('id', selectedField.id)
+        .eq("id", selectedField.id)
         .select()
         .single();
 
-        if (updateError) throw updateError;
-        fieldId = updatedData.id;
+      if (updateError) throw updateError;
+      fieldId = updatedData.id;
 
+      // ---- Atualizar subfields da fórmula, se houver ----
+      if (newField.editFormula) {
+        const { data: subFieldsData } = await supabase
+          .from("submodule_field_subfields")
+          .select("*")
+          .eq("field_id", selectedField.id);
 
-        if (newField.editFormula) {
-        // Buscar todos os subcampos relacionados a essa fórmula
-        const { data: subFieldsData, error: subError } = await supabase
-          .from('submodule_field_subfields')
-          .select('*')
-          .eq('field_id', selectedField.id);
+        const parsed = parseFormula(newField.formula)?.subFields || [];
 
-        if (subError) throw subError;
+        // Atualiza ou cria novos
+        for (let i = 0; i < parsed.length; i++) {
+          const sf = parsed[i];
+          const existing = subFieldsData?.[i];
 
-        if (subFieldsData && subFieldsData.length > 0) {
-          // Recalcular os valores com base na nova fórmula
-          // Exemplo: separar variáveis e operadores novamente
-          const { subFields: parsedSubFields, ops } = parseFormula(newField.formula);
-
-          // Atualizar cada subcampo no banco com o novo nome/posição se necessário
-          for (const [index, sf] of parsedSubFields.entries()) {
-            const existing = subFieldsData[index];
-
-            if (existing) {
-              // Atualiza subfield existente
-              await supabase
-                .from('submodule_field_subfields')
-                .update({
-                  name: sf.name,
-                  field_type: 'number', // ou conforme o tipo esperado
-                })
-                .eq('id', existing.id);
-            } else {
-              // Caso a nova fórmula tenha mais subcampos, insere o extra
-              await supabase
-                .from('submodule_field_subfields')
-                .insert({
-                  field_id: selectedField.id,
-                  name: sf.name,
-                  field_type: 'number',
-                });
-            }
+          if (existing) {
+            await supabase
+              .from("submodule_field_subfields")
+              .update({ name: sf.name, field_type: "number" })
+              .eq("id", existing.id);
+          } else {
+            await supabase
+              .from("submodule_field_subfields")
+              .insert({
+                field_id: selectedField.id,
+                name: sf.name,
+                field_type: "number"
+              });
           }
-
-          // Caso a fórmula tenha menos subfields agora → remover os antigos que sobraram
-          const excess = subFieldsData.slice(parsedSubFields.length);
-          if (excess.length > 0) {
-            const idsToDelete = excess.map((sf) => sf.id);
-            await supabase.from('submodule_field_subfields').delete().in('id', idsToDelete);
-          }
-
-        }
-              
         }
 
+        // Remove excedentes
+        const excess = subFieldsData?.slice(parsed.length) || [];
+        if (excess.length)
+          await supabase
+            .from("submodule_field_subfields")
+            .delete()
+            .in("id", excess.map(e => e.id));
+      }
     } else {
-      // Inserir novo campo
+      // Criar novo campo
       const { data: fieldData, error: insertError } = await supabase
-        .from('submodule_fields')
+        .from("submodule_fields")
         .insert([{
-          submodule_id: submoduleId, // UUID do submodule
+          submodule_id: submoduleId,
           name: newField.name,
           field_type: newField.field_type,
-          formula:newField.formula,
-          operation:newField.operation ,
+          formula: newField.formula,
+          operation: newField.operation,
         }])
         .select()
         .single();
 
       if (insertError) throw insertError;
-      fieldId = fieldData.id; // UUID correto
+      fieldId = fieldData.id;
     }
 
-    // Inserir subcampos se houver função
-    if (newField.field_type == 'formula' ||newField.field_type == 'etapas' && Array.isArray(newField.subFields) && newField.subFields.length) {
+    // ============================
+    // 2) Criar subfields iniciais
+    // ============================
+    const shouldCreateSubs =
+      (newField.field_type === "formula" || newField.field_type === "etapas") &&
+      Array.isArray(newField.subFields) &&
+      newField.subFields.length;
+
+    if (shouldCreateSubs) {
       const rows = newField.subFields.map(sf => ({
-        field_id: fieldId, // UUID correto
+        field_id: fieldId,
         name: sf.name,
-        field_type: newField.field_type === 'etapas' ? 'boolean' : 'number',
+        field_type: newField.field_type === "etapas" ? "boolean" : "number",
       }));
 
       const { error: subfieldError } = await supabase
-        .from('submodule_field_subfields')
+        .from("submodule_field_subfields")
         .insert(rows);
 
       if (subfieldError) throw subfieldError;
     }
 
-    toast({ title: 'Campo salvo', description: `Campo "${newField.name}" salvo com sucesso.` });
-    setCreatingFieldType(null)
-    setEditingFieldId(null)
-    // Atualizar registros existentes
-    // Buscar todos os registros do submódulo
-    const { data: records, error } = await supabase
-      .from('submodule_records')
-      .select('*')
-      .eq('submodule_id', submoduleId);
+    toast({ title: "Campo salvo", description: `Campo "${newField.name}" salvo com sucesso.` });
 
-    if (error) throw error;
+    setCreatingFieldType(null);
+    setEditingFieldId(null);
 
-    if (records && records.length > 0) {
+    // ============================
+    // 3) Atualizar records existentes
+    // ============================
+    const { data: records } = await supabase
+      .from("submodule_records")
+      .select("*")
+      .eq("submodule_id", submoduleId);
+
+    if (records?.length) {
+      const renaming = selectedField && selectedField.name !== newField.name;
+      const oldKey = selectedField?.name;
+      const newKey = newField.name;
+
       for (const record of records) {
         const updatedData = { ...record.data };
 
-        // Inicializa o campo principal
-        if (!(newField.name in updatedData)) {
-          updatedData[newField.name] =
-            newField.field_type === 'number' || newField.hasFunction
-              ? 0
-              : newField.field_type === 'etapas'
-              ? false
-              : '';
+        // Renomear chave
+        if (renaming && oldKey in updatedData) {
+          updatedData[newKey] = updatedData[oldKey];
+          delete updatedData[oldKey];
         }
 
-        // Inicializa subcampos
-        if ((newField.hasFunction || newField.field_type === 'etapas') && newField.subFields) {
+        // Garantir campo base
+        if (!(newKey in updatedData)) {
+          updatedData[newKey] =
+            newField.field_type === "number" || newField.hasFunction
+              ? 0
+              : newField.field_type === "etapas"
+              ? false
+              : "";
+        }
+
+        // Garantir subfields
+        if ((newField.hasFunction || newField.field_type === "etapas") && newField.subFields) {
           newField.subFields.forEach(sf => {
             if (!(sf.name in updatedData)) {
-              // Se for função numérica → 0, se for etapas → false
               updatedData[sf.name] =
-                newField.hasFunction && newField.field_type === 'number' ? 0 : false;
+                newField.field_type === "etapas"
+                  ? false
+                  : 0;
             }
           });
         }
 
-        // Atualiza o registro
         await supabase
-          .from('submodule_records')
+          .from("submodule_records")
           .update({ data: updatedData })
-          .eq('id', record.id);
+          .eq("id", record.id);
       }
     }
 
-    // Resetar estados e modais
+    // ============================
+    // 4) Reset final
+    // ============================
     setFieldModalOpen(false);
     setSelectedField(null);
-
     setNewField({
-      name: '',
-      field_type: 'text',
+      name: "",
+      field_type: "text",
       hasFunction: false,
       subFields: [],
-      operation: '',
+      operation: "",
       selectedSubFields: []
     });
 
@@ -343,11 +350,12 @@ const handleDefaultChange = async (campo, idx, value) => {
 
   } catch (err) {
     console.error(err);
-    toast({ title: 'Erro ao salvar campo', description: err.message || String(err) });
+    toast({ title: "Erro ao salvar campo", description: err.message });
   } finally {
     setLoading(false);
   }
-  };
+};
+
 
 
   const handleSaveSubField = async (field,subfield) => {
@@ -489,6 +497,7 @@ const camposPorTipo = fields.reduce((acc, campo) => {
 },{ formula: [] });
 
 const [editOrderCamps, setEditOrderCamps] = useState(false)
+
 
     return (
         <>

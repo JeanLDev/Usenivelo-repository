@@ -12,8 +12,6 @@
 import { SplitButton } from "./components/buttonNewCard";
 import KanbanCard from "./KanbanCard";
 import FilterIconDropdownKanban from "./components/FilterIconDropdownKanban";
-import DateRangePicker from "./components/CalendarioRangeDropdown";
-import DateDurationSelector from "./components/CalendarioRangeDropdown";
 import CalendarioRangeDropdown from "./components/CalendarioRangeDropdown";
 
   const Modal = ({ isOpen, onClose, title, children, size='4xl' }) => {
@@ -68,6 +66,7 @@ import CalendarioRangeDropdown from "./components/CalendarioRangeDropdown";
     // ------------------- FETCH -------------------
     const fetchData = async () => {
     try {
+      setLoading(true)
       // Usuário logado
       const { data: userData } = await supabase.auth.getUser();
       setUser(userData.user);
@@ -313,55 +312,143 @@ import CalendarioRangeDropdown from "./components/CalendarioRangeDropdown";
 
 
     // ------------------- DRAG & DROP -------------------
-    const onDragEnd = async(result) => {
-      const { destination, source, draggableId } = result;
-      if (!destination) return;
-      if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+  const onDragEnd = async (result) => {
+  const { destination, source, draggableId } = result;
+  if (!destination) return;
+  if (
+    destination.droppableId === source.droppableId &&
+    destination.index === source.index
+  ) return;
 
-      const start = columnsData.columns[source.droppableId];
-      const finish = columnsData.columns[destination.droppableId];
+  // 1️⃣ Obtém colunas e cards atuais
+  const start = columnsData.columns[source.droppableId];
+  const finish = columnsData.columns[destination.droppableId];
 
-      if (start === finish) {
-        const newCardIds = Array.from(start.cardIds);
-        newCardIds.splice(source.index, 1);
-        newCardIds.splice(destination.index, 0, draggableId);
-        const newColumn = { ...start, cardIds: newCardIds };
-        setColumnsData(prev => ({ ...prev, columns: { ...prev.columns, [newColumn.id]: newColumn } }));
-        return;
-      }
-
-      const newStartCardIds = Array.from(start.cardIds);
-      newStartCardIds.splice(source.index, 1);
-      const newStart = { ...start, cardIds: newStartCardIds };
-
-      const newFinishCardIds = Array.from(finish.cardIds);
-      newFinishCardIds.splice(destination.index, 0, draggableId);
-      const newFinish = { ...finish, cardIds: newFinishCardIds };
-
-      setColumnsData(prev => ({
-        ...prev,
-        columns: { ...prev.columns, [newStart.id]: newStart, [newFinish.id]: newFinish }
-      }));
-      // ------------------- ATUALIZA NO BANCO -------------------
-      try {
-        const { error } = await supabase
-          .from("kanban_cards")
-          .update({ step_id: finish.id })
-          .eq("id", draggableId);
-
-        if (error) console.error("Erro ao mover card:", error);
-      } catch (err) {
-        console.error(err);
-      }
-      // Salva 1 por 1 (Supabase não suporta batch nativo)
-        for (const item of updates) {
-          await supabase
-            .from("kanban_cards")
-            .update({ position: item.position })
-            .eq("id", item.id);
+  // 2️⃣ Filtra cards visíveis considerando filtros e período
+  const filterVisibleCards = (cardIds) => {
+    return cardIds
+      .map(id => cardsData[id])
+      .filter(Boolean)
+      .filter(card => {
+        // Filtro por activeFilter
+        if (activeFilter?.column && activeFilter?.value) {
+          const fieldValue = card.data?.[activeFilter.column];
+          const values = Array.isArray(fieldValue) ? fieldValue.map(v => (v?.data?.nome || v?.nome || v)) : [fieldValue];
+          const filterVal = activeFilter.value.toString().toLowerCase();
+          const matches = values.some(v => {
+            const fv = (v?.toString() || "").toLowerCase();
+            switch (activeFilter.operator) {
+              case "=": return fv === filterVal;
+              case "!=": return fv !== filterVal;
+              case "contains": return fv.includes(filterVal);
+              case ">": return Number(fv) > Number(filterVal);
+              case "<": return Number(fv) < Number(fv);
+              default: return false;
+            }
+          });
+          if (!matches) return false;
         }
 
+        // Filtro por período
+        const dataCard = toDateOnlyString(card.created_at);
+        const startDate = periodo.start ? toDateOnlyString(periodo.start) : null;
+        const endDate = periodo.end ? toDateOnlyString(periodo.end) : null;
+        if (startDate && endDate) return dataCard >= startDate && dataCard <= endDate;
+        if (startDate && !endDate) return dataCard === startDate;
+        return true;
+      });
+  };
+
+  // -------------------------------
+  // MOVENDO NA MESMA COLUNA
+  // -------------------------------
+  if (start === finish) {
+    const visibleCards = filterVisibleCards(start.cardIds);
+    const newCardIds = Array.from(start.cardIds);
+
+    // Reposiciona apenas o draggableId dentro da coluna
+    const currentIndex = newCardIds.indexOf(draggableId);
+    if (currentIndex === -1) return; // segurança
+    newCardIds.splice(currentIndex, 1);
+    newCardIds.splice(destination.index, 0, draggableId);
+
+    const newColumn = { ...start, cardIds: newCardIds };
+    setColumnsData(prev => ({
+      ...prev,
+      columns: { ...prev.columns, [newColumn.id]: newColumn }
+    }));
+
+    // Atualiza posição sequencial
+    for (let i = 0; i < newCardIds.length; i++) {
+      const cardId = newCardIds[i];
+      setCardsData(prev => ({ ...prev, [cardId]: { ...prev[cardId], position: i + 1 } }));
+      const { error } = await supabase
+        .from("kanban_cards")
+        .update({ position: i + 1 })
+        .eq("id", cardId);
+      if (error) console.error("Erro ao atualizar posição na mesma coluna:", error);
+    }
+    return;
+  }
+
+  // -------------------------------
+  // MOVENDO ENTRE COLUNAS DIFERENTES
+  // -------------------------------
+  const newStartCardIds = Array.from(start.cardIds);
+  newStartCardIds.splice(source.index, 1);
+  const newFinishCardIds = Array.from(finish.cardIds);
+  newFinishCardIds.splice(destination.index, 0, draggableId);
+
+  const newStart = { ...start, cardIds: newStartCardIds };
+  const newFinish = { ...finish, cardIds: newFinishCardIds };
+
+  setColumnsData(prev => ({
+    ...prev,
+    columns: {
+      ...prev.columns,
+      [newStart.id]: newStart,
+      [newFinish.id]: newFinish
+    }
+  }));
+
+  // Atualiza cardsData local
+  setCardsData(prev => ({
+    ...prev,
+    [draggableId]: { ...prev[draggableId], step_id: finish.id }
+  }));
+
+  try {
+    // Atualiza step_id no Supabase
+    const { error: moveError } = await supabase
+      .from("kanban_cards")
+      .update({ step_id: finish.id })
+      .eq("id", draggableId);
+    if (moveError) console.error("Erro ao mover card:", moveError);
+
+    // Atualiza posições sequencialmente
+    const updatePositions = async (cardIds) => {
+      for (let i = 0; i < cardIds.length; i++) {
+        const cardId = cardIds[i];
+        setCardsData(prev => ({ ...prev, [cardId]: { ...prev[cardId], position: i + 1 } }));
+        const { error } = await supabase
+          .from("kanban_cards")
+          .update({ position: i + 1 })
+          .eq("id", cardId);
+        if (error) console.error("Erro ao atualizar posição:", error);
+      }
     };
+
+    await updatePositions(newStartCardIds);
+    await updatePositions(newFinishCardIds);
+
+  } catch (err) {
+    console.error("Erro ao atualizar cards entre colunas:", err);
+  }
+};
+
+
+
+
 
     
 
@@ -470,6 +557,14 @@ const handleRenameStep = async (stepId) => {
     );
   }
 const cardIds = Object.keys(cardsData || {});
+function isCampoValido(key, value) {
+  const ignorar = ["id", "submodule_id", "comments", "labels", "created_at", "updated_at","checklist"];
+  return (
+    !ignorar.includes(key) &&
+    (["string", "number", "boolean"].includes(typeof value) || Array.isArray(value))
+  );
+}
+
 
 // junta todos os campos de todos os cards
 let camposSet = new Set();
@@ -486,17 +581,18 @@ cardIds.forEach((id) => {
     if (key === "__submoduleName") return;
 
     // aceitar apenas valores primitivos (string, number, boolean)
-    if (["string", "number", "boolean"].includes(typeof value)) {
-      camposSet.add(key);
+    if (
+      ["string", "number", "boolean"].includes(typeof value) ||
+      Array.isArray(value)
+    ) {
+      if (isCampoValido(key, value)) camposSet.add(key);
     }
+
   });
 });
 
 // converte o Set para array final
 const camposDoCard = Array.from(camposSet);
-
-
-
 
   // Filtra as etapas que o usuário tem permissão ou que ele é dono
   const stepsDoUsuario = steps.filter(step =>
@@ -723,7 +819,7 @@ const camposDoCard = Array.from(camposSet);
                         selectSubmodule('main', step.id)
                         setRecord([]);
                         setOnlyView(false);
-                        if(isOwner) setCanEdit(true)
+                        if(isOwner) {setCanEdit(true)} else {setCanEdit(canEdit)}
                       }}
                       options={usuarioComSubmodules?.submodules?.map((sub) => ({
                         label: sub.name,
@@ -740,93 +836,92 @@ const camposDoCard = Array.from(camposSet);
                         setOnlyView(false);
                       }}
                     />
+                    <div>
+  {column.cardIds
+    .map(cardId => cardsData[cardId])
+    .filter(Boolean)
+    .filter((card) => {
+      // ----------------------------------
+      // FILTRO POR CAMPO (activeFilter)
+      // ----------------------------------
+      if (activeFilter?.column && activeFilter?.value) {
+        if (activeFilter.column === "checklist") return true; // ignora checklist
 
-                    {column.cardIds
-  .filter((cardId) => {
-    const card = cardsData[cardId];
-    if (!card) return false;
+        const fieldValue = card.data?.[activeFilter.column];
 
-    // ----------------------------------
-    //  FILTRO POR CAMPO (activeFilter)
-    // ----------------------------------
-    if (activeFilter?.column && activeFilter?.value) {
-      const fieldValue = card.data?.[activeFilter.column];
-      const fv = fieldValue?.toString().toLowerCase() ?? "";
-      const filterVal = activeFilter.value.toLowerCase();
+        // Normaliza para array de strings
+        const values = Array.isArray(fieldValue)
+          ? fieldValue
+              .map(v => {
+                if (v && typeof v === "object") {
+                  const key = Object.keys(v.data || {}).find(k =>
+                    k.toLowerCase().includes("nome") || k.toLowerCase().includes("modelo")
+                  ) || Object.keys(v)[0];
+                  return v[key] ?? "";
+                }
+                return v; // string/number/boolean
+              })
+              .filter(Boolean)
+          : [fieldValue];
 
-      switch (activeFilter.operator) {
-        case "=": // igual
-          if (fv !== filterVal) return false;
-          break;
+        const filterVal = activeFilter.value.toLowerCase();
 
-        case "!=": // diferente
-          if (fv === filterVal) return false;
-          break;
+        const matches = values.some(v => {
+          const fv = v?.toString().toLowerCase() ?? "";
+          switch (activeFilter.operator) {
+            case "=": return fv === filterVal;
+            case "!=": return fv !== filterVal;
+            case "contains": return fv.includes(filterVal);
+            case ">": return Number(fv) > Number(filterVal);
+            case "<": return Number(fv) < Number(filterVal);
+            default: return false;
+          }
+        });
 
-        case "contains": // contém
-          if (!fv.includes(filterVal)) return false;
-          break;
-
-        case ">": // maior que (número)
-          if (Number(fieldValue) <= Number(activeFilter.value)) return false;
-          break;
-
-        case "<": // menor que (número)
-          if (Number(fieldValue) >= Number(activeFilter.value)) return false;
-          break;
-
-        default:
-          break;
+        if (!matches) return false;
       }
-    }
 
-    // ----------------------------------
-    //  FILTRO POR DATA (periodo)
-    // ----------------------------------
-    const dataCard = toDateOnlyString(card.created_at);
+      // ----------------------------------
+      // FILTRO POR DATA (periodo)
+      // ----------------------------------
+      const dataCard = toDateOnlyString(card.created_at);
+      const start = periodo.start ? toDateOnlyString(periodo.start) : null;
+      const end = periodo.end ? toDateOnlyString(periodo.end) : null;
 
-    const start = periodo.start ? toDateOnlyString(periodo.start) : null;
-    const end = periodo.end ? toDateOnlyString(periodo.end) : null;
+      if (!start && !end) return true;
+      if (start && !end) return dataCard === start;
+      if (start && end) return dataCard >= start && dataCard <= end;
 
-    // sem filtro de data
-    if (!start && !end) return true;
+      return true;
+    })
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)) // ✅ Ordena pelo position
+    .map((card, index) => (
+      <KanbanCard
+        key={card.id}
+        card={card}
+        index={index}
+        canMoveStep={canMoveStep}
+        usuarios={usuarios}
+        companies={companies}
+        submodules={submodules}
+        step={step}
+        canView={canView}
+        canEdit={canEdit}
+        canDelete={canDelete}
+        openMenuCardId={openMenuCardId}
+        setOpenMenuCardId={setOpenMenuCardId}
+        selectSubmoduleButton={selectSubmoduleButton}
+        setRecord={setRecord}
+        setCanEdit={setCanEdit}
+        setOnlyView={setOnlyView}
+        handleReloadKanban={handleReloadKanban}
+        supabase={supabase}
+      />
+    ))}
+  {provided.placeholder}
+                    </div>
 
-    // um único dia
-    if (start && !end) {
-      return dataCard === start;
-    }
 
-    // intervalo
-    if (start && end) {
-      return dataCard >= start && dataCard <= end;
-    }
-
-    return true;
-  })
-  .map((cardId, index) => (
-    <KanbanCard
-      key={cardId}
-      card={cardsData[cardId]}
-      index={index}
-      canMoveStep={canMoveStep}
-      usuarios={usuarios}
-      companies={companies}
-      submodules={submodules}
-      step={step}
-      canView={canView}
-      canEdit={canEdit}
-      canDelete={canDelete}
-      openMenuCardId={openMenuCardId}
-      setOpenMenuCardId={setOpenMenuCardId}
-      selectSubmoduleButton={selectSubmoduleButton}
-      setRecord={setRecord}
-      setCanEdit={setCanEdit}
-      setOnlyView={setOnlyView}
-      handleReloadKanban={handleReloadKanban}
-      supabase={supabase}
-    />
-  ))}
-{provided.placeholder}
 
 
                   </div>

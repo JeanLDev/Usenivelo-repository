@@ -306,12 +306,13 @@ const renderInput = (field) => {
   // ========== SELECT ==========
   if (field.field_type === "select") {
     const options = subFields.filter(sf => sf.field_id === field.id);
-
     return (
       <div className="space-y-1">
         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{field.name}</label>
         <Select value={value ?? ""} onValueChange={(v) => handleChange(field.name, v)}>
-          <SelectTrigger className="w-full h-10" />
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione" />
+          </SelectTrigger>
           <SelectContent>
             {options.map(op => (
               <SelectItem key={op.id} value={op.name}>{op.name}</SelectItem>
@@ -324,39 +325,60 @@ const renderInput = (field) => {
 
   // ========== MULTISELECT ==========
   if (field.field_type === "multiselect") {
-    const options = subFields.filter(sf => sf.field_id === field.id);
-    const selected = formData[field.name] || [];
+  const options = subFields.filter(sf => sf.field_id === field.id);
+  const selected = formData[field.name] || [];
 
-    const toggle = (name) => {
-      const limit = field.limit || options.length;
-      let res = selected.includes(name)
-        ? selected.filter(v => v !== name)
-        : (selected.length < limit ? [...selected, name] : selected);
-      handleChange(field.name, res);
-    };
+  const toggle = (name) => {
+    const limit = field.limit || options.length;
+    const isSelected = selected.includes(name);
 
-    return (
-      <div className="space-y-1">
-        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{field.name}</label>
+    let res = isSelected
+      ? selected.filter(v => v !== name)
+      : selected.length < limit
+        ? [...selected, name]
+        : selected;
 
-        <div className="border border-gray-300 dark:border-gray-700 rounded-md p-2 bg-white dark:bg-gray-800">
-          {options.map(op => {
-            const active = selected.includes(op.name);
-            return (
-              <label key={op.id} className="flex items-center gap-2 py-1 cursor-pointer text-sm">
-                <input type="checkbox" checked={active} onChange={() => toggle(op.name)} className="accent-green-600" />
-                {op.name}
-              </label>
-            );
-          })}
-        </div>
+    handleChange(field.name, res);
+  };
 
-        {field.limit && (
-          <p className="text-xs text-gray-500">Selecionados: {selected.length}/{field.limit}</p>
-        )}
+  return (
+    <div className="space-y-1">
+      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        {field.name}
+      </label>
+
+      {/* Container dos itens */}
+      <div className="flex flex-wrap gap-2">
+        {options.map(op => {
+          const active = selected.includes(op.name);
+          return (
+            <div
+              key={op.id}
+              onClick={() => toggle(op.name)}
+              className={`
+                px-3 py-1 text-sm rounded-xl cursor-pointer border
+                transition-all select-none
+                ${active 
+                  ? "bg-green-500 border-green-600 text-white shadow-sm" 
+                  : "border-green-400 text-green-600 hover:bg-green-50"
+                }
+              `}
+            >
+              {op.name}
+            </div>
+          );
+        })}
       </div>
-    );
-  }
+
+      {field.limit && (
+        <p className="text-xs text-gray-500">
+          Selecionados: {selected.length}/{field.limit}
+        </p>
+      )}
+    </div>
+  );
+}
+
 
   // ========== BOOLEAN ==========
   if (field.field_type === "boolean") {

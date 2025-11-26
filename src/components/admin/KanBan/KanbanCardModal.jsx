@@ -629,10 +629,14 @@ const handleDescriptionChange = (value) => {
         ...(submodule_id ? { submodule_id } : {}), // só adiciona se tiver valor
       };
 
-      const { error } = await supabase
-        .from("submodule_records")
-        .update(updateData)
-        .eq("id", kanban ? record.record_id : record.id);
+      if(record.record_id) {
+        const { error } = await supabase
+          .from("submodule_records")
+          .update(updateData)
+          .eq("id", kanban ? record.record_id : record.id);
+          
+        if (error) throw error;
+      }
 
       if (kanban) {
         const kanbanUpdate = {
@@ -648,7 +652,6 @@ const handleDescriptionChange = (value) => {
         if (errKanban) throw errKanban;
       }
 
-      if (error) throw error;
 
       toast({
         title: "Registro Atualizado",
