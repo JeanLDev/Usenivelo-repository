@@ -34,7 +34,7 @@ export function SplitButton({ mainLabel, onMainClick, options, onSelect }) {
                   hover:border-gray-400
                   hover:bg-[#68D08A]
                   hover:text-green
-                  transition-all duration-500 ease-in
+                  transition-all duration-300 ease-in
         ${options.length > 0 ? "rounded-bl-md" : "rounded-md"}`}
     >
       <span className="flex justify-center items-center"><PlusCircle className="mr-1 w-4 h-4"/> {mainLabel}</span>

@@ -9,10 +9,10 @@
   import ShareDropdown from "./components/ShareDropdown";
   import KanbanCardModal from "./KanbanCardModal";
   import { useDashboard } from '@/contexts/DashboardContext';
-import { SplitButton } from "./components/buttonNewCard";
 import KanbanCard from "./KanbanCard";
 import FilterIconDropdownKanban from "./components/FilterIconDropdownKanban";
 import CalendarioRangeDropdown from "./components/CalendarioRangeDropdown";
+import KanbanRe from "./components/KanbanFluxes";
 
   const Modal = ({ isOpen, onClose, title, children, size='4xl' }) => {
     if (!isOpen) return null;
@@ -235,155 +235,134 @@ import CalendarioRangeDropdown from "./components/CalendarioRangeDropdown";
   };
 
 
-
-    //carrega estado inicial
     const loadKanbanBasic = async (kanban_id, setSteps, setCardsData, setColumnsData) => {
-try {
-  const { data: stepsData } = await supabase
-    .from("kanban_steps")
-    .select("*")
-    .eq("kanban_id", kanban_id)
-    .order("position", { ascending: true });
+      try {
 
-  if (!stepsData) return;
+        // Buscar Steps
+        const { data: stepsData } = await supabase
+          .from("kanban_steps")
+          .select("*")
+          .eq("kanban_id", kanban_id)
+          .order("position", { ascending: true });
 
-  const { data: cards } = await supabase
-    .from("kanban_cards")
-    .select("*")
-    .in("step_id", stepsData.map(s => s.id));
+        if (!stepsData) return;
 
-  const columns = {};
-  const columnOrder = [];
-  stepsData.forEach(step => {
-    columns[step.id] = { id: step.id, title: step.name, cardIds: [], color: step.color };
-    columnOrder.push(step.id);
-  });
+        // Buscar Cards
+        const { data: cards } = await supabase
+          .from("kanban_cards")
+          .select("*")
+          .in("step_id", stepsData.map(s => s.id));
 
-  const cardsMap = {};
-  cards?.forEach(card => {
-    cardsMap[card.id] = card;
-    columns[card.step_id]?.cardIds.push(card.id);
-  });
+        // Montar estrutura de colunas
+        const columns = {};
+        const columnOrder = [];
 
-  setSteps(stepsData);
-  setCardsData(cardsMap);
-  setColumnsData({ columns, columnOrder });
-} catch (err) {
-  console.error("Erro ao carregar kanban:", err);
-}
+        stepsData.forEach(step => {
+          columns[step.id] = { id: step.id, title: step.name, cardIds: [], color: step.color  };
+          columnOrder.push(step.id);
+        });
+
+        // Montar cardsData e distribuir nos steps
+        const cardsMap = {};
+        cards?.forEach(card => {
+          if (!cardsMap[card.id]) {
+            cardsMap[card.id] = card;
+            columns[card.step_id]?.cardIds.push(card.id);
+          }
+        });
+
+        // Atualizar estados do Kanban
+        setSteps(stepsData);
+        setCardsData(cardsMap);
+        setColumnsData({ columns, columnOrder });
+
+      } catch (err) {
+        console.error("Erro ao carregar kanban:", err);
+      }
     };
-    //função arrasta e solta
-    const onDragEnd = async (result) => {
-  const { destination, source, draggableId } = result;
-  if (!destination) return;
-  if (destination.droppableId === source.droppableId && destination.index === source.index) return;
-
-  const start = columnsData.columns[source.droppableId];
-  const finish = columnsData.columns[destination.droppableId];
-
-  const newColumns = { ...columnsData.columns };
-
-  // MESMA COLUNA → apenas rearranjar no array
-  if (start.id === finish.id) {
-    const newCardIds = Array.from(start.cardIds);
-    const [moved] = newCardIds.splice(source.index, 1);
-    newCardIds.splice(destination.index, 0, moved);
-
-    newColumns[start.id] = { ...start, cardIds: newCardIds };
-    setColumnsData(prev => ({ ...prev, columns: newColumns }));
-
-    // Atualiza posições no banco
-    const updates = newCardIds.map((id, idx) => ({ id, position: idx + 1 }));
-    for (let u of updates) {
-      await supabase.from("kanban_cards").update({ position: u.position }).eq("id", u.id);
-    }
-
-    return;
-  }
-
-  // COLUNA DIFERENTE → remove da start, adiciona na finish
-  const newStartIds = Array.from(start.cardIds);
-  newStartIds.splice(source.index, 1);
-
-  const newFinishIds = Array.from(finish.cardIds);
-  newFinishIds.splice(destination.index, 0, draggableId);
-
-  newColumns[start.id] = { ...start, cardIds: newStartIds };
-  newColumns[finish.id] = { ...finish, cardIds: newFinishIds };
-
-  setColumnsData(prev => ({ ...prev, columns: newColumns }));
-
-  try {
-    // Atualiza step_id do card movido
-    await supabase.from("kanban_cards").update({ step_id: finish.id }).eq("id", draggableId);
-
-    // Atualiza posições nas duas colunas
-    const startUpdates = newStartIds.map((id, idx) => ({ id, position: idx + 1 }));
-    const finishUpdates = newFinishIds.map((id, idx) => ({ id, position: idx + 1 }));
-
-    for (let u of [...startUpdates, ...finishUpdates]) {
-      await supabase.from("kanban_cards").update({ position: u.position }).eq("id", u.id);
-    }
-  } catch (err) {
-    console.error("Erro ao atualizar kanban:", err);
-  }
-};
 
     const handleReloadKanban = () => {
       loadKanbanBasic(kanban_id, setSteps, setCardsData, setColumnsData);
     };
-    //escutar mudanças no db (realtime)
-   useEffect(() => {
-  const subscription = supabase
-    .channel('public:kanban_cards')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'kanban_cards' },
-      (payload) => {
-        const card = payload.new;
-        if (!card) return;
-
-        // 🔹 Ignora updates que só alteram position
-        const oldCard = payload.old;
-        if (oldCard && card.position !== undefined && card.step_id === oldCard.step_id) {
-          // nada mudou exceto posição → ignorar
-          return;
-        }
-
-        // Atualiza card no estado
-        setCardsData(prev => ({ ...prev, [card.id]: card }));
-
-        // Atualiza colunas caso o card tenha mudado de step
-        setColumnsData(prev => {
-          const newColumns = { ...prev.columns };
-          Object.values(newColumns).forEach(col => {
-            col.cardIds = col.cardIds.filter(id => id !== card.id);
-          });
-          newColumns[card.step_id]?.cardIds.push(card.id);
-          return { ...prev, columns: newColumns };
-        });
-      }
-    )
-    .subscribe();
-
-  return () => supabase.removeChannel(subscription);
-}, [kanban_id]);
 
 
-
-
-
-
-
-//fetch principal
+    //fetch principal
     useEffect(() => {
       fetchData();
     }, [kanban_id]);
+    //escutar mudanças no db
+    useEffect(() => {
+      const subscription = supabase
+        .channel('public:kanban_cards')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'kanban_cards' },
+          (payload) => {
+            // Apenas recarrega sempre que houver alteração
+            console.log('Change received!', payload);
+            handleReloadKanban();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(subscription);
+      };
+    }, [kanban_id]);
+
+
     // ------------------- DRAG & DROP -------------------
-  
+    const onDragEnd = async(result) => {
+      const { destination, source, draggableId } = result;
+      if (!destination) return;
+      if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
+      const start = columnsData.columns[source.droppableId];
+      const finish = columnsData.columns[destination.droppableId];
 
+      if (start === finish) {
+        const newCardIds = Array.from(start.cardIds);
+        newCardIds.splice(source.index, 1);
+        newCardIds.splice(destination.index, 0, draggableId);
+        const newColumn = { ...start, cardIds: newCardIds };
+        setColumnsData(prev => ({ ...prev, columns: { ...prev.columns, [newColumn.id]: newColumn } }));
+        return;
+      }
 
+      const newStartCardIds = Array.from(start.cardIds);
+      newStartCardIds.splice(source.index, 1);
+      const newStart = { ...start, cardIds: newStartCardIds };
+
+      const newFinishCardIds = Array.from(finish.cardIds);
+      newFinishCardIds.splice(destination.index, 0, draggableId);
+      const newFinish = { ...finish, cardIds: newFinishCardIds };
+
+      setColumnsData(prev => ({
+        ...prev,
+        columns: { ...prev.columns, [newStart.id]: newStart, [newFinish.id]: newFinish }
+      }));
+      // ------------------- ATUALIZA NO BANCO -------------------
+      try {
+        const { error } = await supabase
+          .from("kanban_cards")
+          .update({ step_id: finish.id })
+          .eq("id", draggableId);
+
+        if (error) console.error("Erro ao mover card:", error);
+      } catch (err) {
+        console.error(err);
+      }
+      // Salva 1 por 1 (Supabase não suporta batch nativo)
+        for (const item of updates) {
+          await supabase
+            .from("kanban_cards")
+            .update({ position: item.position })
+            .eq("id", item.id);
+        }
+
+    };
+
+    
 
 
     // ------------------- TOGGLE PERMISSÕES -------------------
@@ -490,14 +469,6 @@ const handleRenameStep = async (stepId) => {
     );
   }
 const cardIds = Object.keys(cardsData || {});
-function isCampoValido(key, value) {
-  const ignorar = ["id", "submodule_id", "comments", "labels", "created_at", "updated_at","checklist"];
-  return (
-    !ignorar.includes(key) &&
-    (["string", "number", "boolean"].includes(typeof value) || Array.isArray(value))
-  );
-}
-
 
 // junta todos os campos de todos os cards
 let camposSet = new Set();
@@ -514,18 +485,17 @@ cardIds.forEach((id) => {
     if (key === "__submoduleName") return;
 
     // aceitar apenas valores primitivos (string, number, boolean)
-    if (
-      ["string", "number", "boolean"].includes(typeof value) ||
-      Array.isArray(value)
-    ) {
-      if (isCampoValido(key, value)) camposSet.add(key);
+    if (["string", "number", "boolean"].includes(typeof value)) {
+      camposSet.add(key);
     }
-
   });
 });
 
 // converte o Set para array final
 const camposDoCard = Array.from(camposSet);
+
+
+
 
   // Filtra as etapas que o usuário tem permissão ou que ele é dono
   const stepsDoUsuario = steps.filter(step =>
@@ -551,320 +521,104 @@ const camposDoCard = Array.from(camposSet);
     // ------------------- RENDER -------------------
     return (
       <div className=" space-y-4 p-1">
-       {/* CABEÇALHO */}
-<div className="p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center rounded-xl
-                bg-gradient-to-r from-[#7928CA] to-[#007CF0] gap-2 sm:gap-0 px-6">
-  
-  <div className="flex items-center">
-    {/* Select do Kanban */}
-    <select
-      className="p-2 rounded-sm bg-white border border-gray-300 w-full sm:w-auto font-sans cursor-pointer"
-      value={kanban_id}
-      onChange={(e) => navigate(`/admin/KanBan/${e.target.value}`)}
-    >
-      {kanbansUserCanAccess.map(k => (
-        <option key={k.id} value={k.id}>
-          {k.name}
-        </option>
-      ))}
-    </select>
-   
-   <Button
-    className="ml-2"
-    onClick={()=> {
-      setOpenCreateStepKanban(true)
-    }}
-    >
-      <PlusCircle className="mr-2"/> Etapa
-    </Button>
-  </div>
-  {/* Botões do proprietário */}
-  
-    <div className="flex items-center mt-2 sm:mt-0 space-x-2 flex-wrap">
+        {/* CABEÇALHO */}
+        <div className="p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center rounded-sm 
+                        bg-gradient-to-r from-[#7928CA] to-[#007CF0] shadow-md gap-2 sm:gap-0">
+          
+          <div className="flex items-center">
+            {/* Select do Kanban */}
+            <select
+              className="p-2 rounded-sm bg-white border border-gray-300 w-full sm:w-auto font-sans cursor-pointer"
+              value={kanban_id}
+              onChange={(e) => navigate(`/admin/KanBan/${e.target.value}`)}
+            >
+              {kanbansUserCanAccess.map(k => (
+                <option key={k.id} value={k.id}>
+                  {k.name}
+                </option>
+              ))}
+            </select>
+          
+          <Button
+            className="ml-2"
+            onClick={()=> {
+              setOpenCreateStepKanban(true)
+            }}
+            >
+              <PlusCircle className="mr-2"/> Etapa
+            </Button>
+          </div>
+          {/* Botões do proprietário */}
+          
+            <div className="flex items-center mt-2 sm:mt-0 space-x-2 flex-wrap">
 
-       <CalendarioRangeDropdown
-        initialRange={periodo}
-        onChange={(r) => {
-          setPeriodo(r);
-          // aqui você pode refazer consulta ao supabase filtrando por data
-        }}
-      />
+              <CalendarioRangeDropdown
+                initialRange={periodo}
+                onChange={(r) => {
+                  setPeriodo(r);
+                  // aqui você pode refazer consulta ao supabase filtrando por data
+                }}
+              />
 
-      <FilterIconDropdownKanban
-        columns={camposDoCard} 
-        onApply={(filter) => {
-          // aqui você aplica o filtro no Kanban
-          setActiveFilter(filter);
-        }}
-      />
-     {user.id === kanban.user_id && ( 
-      <>
-      <ShareDropdown
-        shared={kanban.share}
-        onOpenShareModal={() => setShareModalOpen(true)}
-        onToggleShare={async (newValue) => {
-          const { error } = await supabase
-            .from("submodules")
-            .update({ share: newValue })
-            .eq("id", kanban.id);
-          if (error) console.error(error);
-          setKanban(prev => ({ ...prev, share: newValue }));
-        }}
-      />
-      <Link
-        to={`/admin/KanBan/${kanban_id}/settings`}
-        className="bg-white p-3 rounded-md border border-gray-300 hover:bg-gray-100"
-      >
-        <Settings className="w-4 h-4" />
-      </Link>
-      </>
-    )}
-    </div>
-  
-</div>
+              <FilterIconDropdownKanban
+                columns={camposDoCard} 
+                onApply={(filter) => {
+                  // aqui você aplica o filtro no Kanban
+                  setActiveFilter(filter);
+                }}
+              />
+            {user.id === kanban.user_id && ( 
+              <>
+              <ShareDropdown
+                shared={kanban.share}
+                onOpenShareModal={() => setShareModalOpen(true)}
+                onToggleShare={async (newValue) => {
+                  const { error } = await supabase
+                    .from("submodules")
+                    .update({ share: newValue })
+                    .eq("id", kanban.id);
+                  if (error) console.error(error);
+                  setKanban(prev => ({ ...prev, share: newValue }));
+                }}
+              />
+              <Link
+                to={`/admin/KanBan/${kanban_id}/settings`}
+                className="bg-white p-3 rounded-md border border-gray-300 hover:bg-gray-100"
+              >
+                <Settings className="w-4 h-4" />
+              </Link>
+              </>
+            )}
+            </div>
+          
+        </div>
 
 
         {/* KANBAN */}
-        <DragDropContext onDragEnd={onDragEnd}>
-          <div className={`mx-0 sm:mx-0 md:mx-3 flex gap-4 overflow-x-auto min-h-[100vh] sm:mx-6 md:ml-0`}>
-            {columnsData.columnOrder.map(columnId => {
-            const column = columnsData.columns[columnId];
-            const step = steps.find(s => s.id === column.id);
-
-            if (!step) return null;
-
-            // 🟦 Verifica se o usuário logado é o dono do Kanban
-            const isOwner = kanban.user_id === user?.id;
-
-            // 🟦 Permissões do usuário nessa etapa
-            const stepUsers = stepsPerms.filter(
-              p => p.step_id === step.id && p.user_id === user?.id
-            );
-
-            // 🟥 Se NÃO for dono e NÃO tiver permissão, não renderiza a etapa
-            if (!isOwner && stepUsers.length === 0) return null;
-
-            // 🟩 Se for o DONO, ele tem todas as permissões automaticamente
-            const canMoveStep   = isOwner ? true : (stepUsers[0]?.move   ?? false);
-            const canCreate     = isOwner ? true : (stepUsers[0]?.create ?? false);
-            const canEdit       = isOwner ? true : (stepUsers[0]?.edit   ?? false);
-            const canView       = isOwner ? true : (stepUsers[0]?.view   ?? false);
-            const canDelete     = isOwner ? true : (stepUsers[0]?.delete ?? false);
-
-            // 🟦 Usuários permitidos no step
-            const permittedUsers = stepsPerms
-              .filter(p => p.step_id === step.id)
-              .map(p => usuarios.find(u => u.id === p.user_id))
-              .filter(Boolean);
-
-            // 🟦 Empresas desses usuários
-            const permittedCompanies = permittedUsers
-              .map(u => companies.find(c => c.id === u.company_id))
-              .filter(Boolean);
-
-            const color = column.color
-
-            return (
-              <Droppable droppableId={column.id} key={column.id} isDropDisabled={!canMoveStep} >
-                {provided => (
-                  <div ref={provided.innerRef} {...provided.droppableProps} className={`flex-shrink-0 
-                   rounded-md w-72 sm:w-72 md:w-80  pb-5`}
-                   style={{ backgroundColor: `${color}60` }}
-                   >
-                    <div className={`flex justify-between items-center   p-5 shadow-md border border-gray-300 rounded-sm z-20`}
-                    style={{ backgroundColor: `${color}` }}
-                    >
-                     <div className="flex items-center gap-2">
-                            {editingTitle === column.id ? (
-                              <input
-                                type="text"
-                                value={editTitleValue}
-                                onChange={(e) => setEditTitleValue(e.target.value)}
-                                onBlur={() => handleRenameStep(column.id)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") handleRenameStep(column.id);
-                                }}
-                                autoFocus
-                                className="font-bold border-b border-gray-300 focus:outline-none focus:border-purple-500 bg-transparent w-full"
-                              />
-                            ) : (
-                              <h2
-                                className="text-gray-900 font-semibold tracking-wide cursor-pointer hover:underline "
-                                onClick={() => {
-                                  setEditingTitle(column.id);
-                                  setEditTitleValue(column.title);
-                                }}
-                              >
-                                {column.title}
-                              </h2>
-                            )}
-                      </div>
-
-                      {canCreate && (
-                      <div className="relative">
-                        <div className="flex space-y-1 items-center">
-                          <div className="flex -space-x-2">
-                              {permittedCompanies.map((comp, i) => (
-                                <div key={i} className="relative group">
-                                  <img
-                                    src={comp.logo_url || comp.logo}
-                                    className="w-6 h-6 rounded-full border-2 border-white object-cover"
-                                  />
-                                  {/* Tooltip */}
-                                  <div className="absolute bottom-full mb-1 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap z-100">
-                                    {comp.name}
-                                  </div>
-                                </div>
-                              ))}
-                          </div>
-                        </div>
-
-                        {openSubmoduleDropdown === step.id && (
-                          <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-300 rounded shadow z-50">
-                            {usuarioComSubmodules?.submodules?.map(sub => (
-                              <button
-                                key={sub.submodule_id}
-                                onClick={() => {
-                                  setOpenSubmoduleDropdown(null);
-                                  setCurrentStep(step);
-                                  // setar qual submodule está criando
-                                  setFormData(prev => ({
-                                    ...prev,
-                                    _submodule_id: sub.submodule_id
-                                  }));
-                                  selectSubmodule(sub, step.id)
-                                  setRecord([])
-                                }}
-                                className="block w-full text-left px-3 py-2 hover:bg-gray"
-                              >
-                                {sub.name}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                        )}
-                    </div>
-                    {/**Botão de Novo Card */}
-                    <SplitButton
-                      mainLabel="Novo Card"
-                      onMainClick={() =>  {
-                        selectSubmodule('main', step.id)
-                        setRecord([]);
-                        setOnlyView(false);
-                        if(isOwner) {setCanEdit(true)} else {setCanEdit(canEdit)}
-                      }}
-                      options={usuarioComSubmodules?.submodules?.map((sub) => ({
-                        label: sub.name,
-                        submodule: sub,
-                      }))}
-                      onSelect={({ submodule }) => {
-                        // 🔁 exatamente o mesmo comportamento do MoreVertical
-                        setCanEdit(canEdit)
-                        setOpenSubmoduleDropdown(null);
-                        setCurrentStep(step);
-                        setFormData(prev => ({ ...prev, _submodule_id: submodule.submodule_id }));
-                        selectSubmodule(submodule, step.id);
-                        setRecord([]);
-                        setOnlyView(false);
-                      }}
-                    />
-                    <div>
-  {column.cardIds
-    .map(cardId => cardsData[cardId])
-    .filter(Boolean)
-    .filter((card) => {
-      // ----------------------------------
-      // FILTRO POR CAMPO (activeFilter)
-      // ----------------------------------
-      if (activeFilter?.column && activeFilter?.value) {
-        if (activeFilter.column === "checklist") return true; // ignora checklist
-
-        const fieldValue = card.data?.[activeFilter.column];
-
-        // Normaliza para array de strings
-        const values = Array.isArray(fieldValue)
-          ? fieldValue
-              .map(v => {
-                if (v && typeof v === "object") {
-                  const key = Object.keys(v.data || {}).find(k =>
-                    k.toLowerCase().includes("nome") || k.toLowerCase().includes("modelo")
-                  ) || Object.keys(v)[0];
-                  return v[key] ?? "";
-                }
-                return v; // string/number/boolean
-              })
-              .filter(Boolean)
-          : [fieldValue];
-
-        const filterVal = activeFilter.value.toLowerCase();
-
-        const matches = values.some(v => {
-          const fv = v?.toString().toLowerCase() ?? "";
-          switch (activeFilter.operator) {
-            case "=": return fv === filterVal;
-            case "!=": return fv !== filterVal;
-            case "contains": return fv.includes(filterVal);
-            case ">": return Number(fv) > Number(filterVal);
-            case "<": return Number(fv) < Number(filterVal);
-            default: return false;
-          }
-        });
-
-        if (!matches) return false;
-      }
-
-      // ----------------------------------
-      // FILTRO POR DATA (periodo)
-      // ----------------------------------
-      const dataCard = toDateOnlyString(card.created_at);
-      const start = periodo.start ? toDateOnlyString(periodo.start) : null;
-      const end = periodo.end ? toDateOnlyString(periodo.end) : null;
-
-      if (!start && !end) return true;
-      if (start && !end) return dataCard === start;
-      if (start && end) return dataCard >= start && dataCard <= end;
-
-      return true;
-    })
-    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)) // ✅ Ordena pelo position
-    .map((card, index) => (
-      <KanbanCard
-        key={card.id}
-        card={card}
-        index={index}
-        canMoveStep={canMoveStep}
-        usuarios={usuarios}
-        companies={companies}
-        submodules={submodules}
-        step={step}
-        canView={canView}
-        canEdit={canEdit}
-        canDelete={canDelete}
+        {/**<FluxKanban steps={steps} cards={cardsData}/>*/}
+        <KanbanRe
+        steps={steps}     
+        kanban={kanban}           // Array de etapas do Kanban
+        cards={cardsData}            // Objeto de cards { cardId: cardData, ... }
+        stepsPerms={stepsPerms}      // Permissões do usuário por step
+        usuarios={usuarios}          // Lista de usuários
+        companies={companies}        // Lista de empresas
+        usuarioComSubmodules={usuarioComSubmodules} // Submodules do usuário
+        activeFilter={activeFilter}  // Filtros ativos
+        periodo={periodo}    
+        selectSubmodule={selectSubmodule}        
+        selectSubmoduleButton={selectSubmoduleButton} // Função de seleção de submodule
+        handleReloadKanban={handleReloadKanban}       // Função para recarregar o kanban
+        submodules={submodules}      // Lista de submodules
+        setRecord={setRecord}        // Para abrir modal de card
+        setCanEdit={setCanEdit}      // Para controlar edição no modal
+        setOnlyView={setOnlyView}    // Para modal apenas leitura
+        user={user}  
         openMenuCardId={openMenuCardId}
         setOpenMenuCardId={setOpenMenuCardId}
-        selectSubmoduleButton={selectSubmoduleButton}
-        setRecord={setRecord}
-        setCanEdit={setCanEdit}
-        setOnlyView={setOnlyView}
-        handleReloadKanban={handleReloadKanban}
-        supabase={supabase}
-      />
-    ))}
-  {provided.placeholder}
-                    </div>
-
-
-
-
-                  </div>
-                )}
-              </Droppable>
-            );
-          })}
-
-          </div>
-        </DragDropContext>
+        formData={formData}
+        setFormData={setFormData}
+        />
 
         {/* Modal de visualização: renderizado só uma vez */}
         <Modal
