@@ -10,6 +10,7 @@ import AdminDashboard from '@/pages/AdminDashboard';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import SharedServiceView from './components/shared/SharedServiceView';
 import Documentation from './pages/Documentation';
+import AssistentStudy from './components/AI/AssistenStudy';
 
 function App() {
   const { user, loading, userRole } = useAuth();
@@ -27,6 +28,7 @@ function App() {
   return (
     <Routes> 
       <Route path="/" element={<LandingPage />} />
+      <Route path='/chatStudy' element={<AssistentStudy/>}/>
       <Route path="/sharedsubmodules/:module_id/sub/:sub_id" element={<SharedServiceView />} />
       <Route path="/documentation" element={<Documentation/>} />
       <Route path="/login" element={!user ? <LoginPage /> : <Navigate to={getDashboardRoute(userRole)} />} />

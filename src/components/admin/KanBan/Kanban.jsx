@@ -311,58 +311,6 @@ import KanbanRe from "./components/KanbanFluxes";
     }, [kanban_id]);
 
 
-    // ------------------- DRAG & DROP -------------------
-    const onDragEnd = async(result) => {
-      const { destination, source, draggableId } = result;
-      if (!destination) return;
-      if (destination.droppableId === source.droppableId && destination.index === source.index) return;
-
-      const start = columnsData.columns[source.droppableId];
-      const finish = columnsData.columns[destination.droppableId];
-
-      if (start === finish) {
-        const newCardIds = Array.from(start.cardIds);
-        newCardIds.splice(source.index, 1);
-        newCardIds.splice(destination.index, 0, draggableId);
-        const newColumn = { ...start, cardIds: newCardIds };
-        setColumnsData(prev => ({ ...prev, columns: { ...prev.columns, [newColumn.id]: newColumn } }));
-        return;
-      }
-
-      const newStartCardIds = Array.from(start.cardIds);
-      newStartCardIds.splice(source.index, 1);
-      const newStart = { ...start, cardIds: newStartCardIds };
-
-      const newFinishCardIds = Array.from(finish.cardIds);
-      newFinishCardIds.splice(destination.index, 0, draggableId);
-      const newFinish = { ...finish, cardIds: newFinishCardIds };
-
-      setColumnsData(prev => ({
-        ...prev,
-        columns: { ...prev.columns, [newStart.id]: newStart, [newFinish.id]: newFinish }
-      }));
-      // ------------------- ATUALIZA NO BANCO -------------------
-      try {
-        const { error } = await supabase
-          .from("kanban_cards")
-          .update({ step_id: finish.id })
-          .eq("id", draggableId);
-
-        if (error) console.error("Erro ao mover card:", error);
-      } catch (err) {
-        console.error(err);
-      }
-      // Salva 1 por 1 (Supabase não suporta batch nativo)
-        for (const item of updates) {
-          await supabase
-            .from("kanban_cards")
-            .update({ position: item.position })
-            .eq("id", item.id);
-        }
-
-    };
-
-    
 
 
     // ------------------- TOGGLE PERMISSÕES -------------------
@@ -609,7 +557,8 @@ const camposDoCard = Array.from(camposSet);
         selectSubmodule={selectSubmodule}        
         selectSubmoduleButton={selectSubmoduleButton} // Função de seleção de submodule
         handleReloadKanban={handleReloadKanban}       // Função para recarregar o kanban
-        submodules={submodules}      // Lista de submodules
+        submodules={submodules}  
+        record={record}    // Lista de submodules
         setRecord={setRecord}        // Para abrir modal de card
         setCanEdit={setCanEdit}      // Para controlar edição no modal
         setOnlyView={setOnlyView}    // Para modal apenas leitura
@@ -618,7 +567,11 @@ const camposDoCard = Array.from(camposSet);
         setOpenMenuCardId={setOpenMenuCardId}
         formData={formData}
         setFormData={setFormData}
+        fields={fields}
+        subFields={subFields}
         />
+
+
 
         {/* Modal de visualização: renderizado só uma vez */}
         <Modal
@@ -629,6 +582,12 @@ const camposDoCard = Array.from(camposSet);
           <KanbanCardModal fields={selectFields} subFields={selectSubFields} submodule_id={submoduleId} onClose={() => setOpenRecordModal(false)} isOpen={openRecordModal} creating={true} submoduleName={submoduleName} 
           kanban={true} created_by={user.id} position={1} step_id={stepSelect} handleReloadKanban={handleReloadKanban} record={record} canEdit={canEdit} onlyView={onlyView} usuarios={usuarios} companies={companies}/>
         </Modal>
+
+
+
+
+
+
         {/**Open Create Step */}
         <Modal
         isOpen={openCreateStepKanban}

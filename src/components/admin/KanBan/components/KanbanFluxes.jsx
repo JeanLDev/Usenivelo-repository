@@ -23,7 +23,9 @@ export default function KanbanRe({
   setOnlyView,
   openMenuCardId,
   setOpenMenuCardId,
-  user
+  user,
+  fields,
+  subFields
 }) {
   const [columns, setColumns] = useState({});
   const dragItem = useRef(null);
@@ -35,6 +37,9 @@ export default function KanbanRe({
   // ==========================
   // FORMATAR STEPS & CARDS
   // ==========================
+
+  
+
   
 
   
@@ -68,12 +73,10 @@ export default function KanbanRe({
         .select();
 
       if (error) console.log("Erro ao atualizar card:", error);
-      else console.log("Card atualizado:", data);
     } catch (err) {
       console.log("Erro inesperado:", err);
     }
   }
-
   // ==========================
   // DRAG & DROP NATIVO
   // ==========================
@@ -83,7 +86,7 @@ export default function KanbanRe({
     dragItem.current = { colId, index };
   }
 
-  function handleDrop(targetColId, toIndex) {
+ function handleDrop(targetColId, toIndex = null) {
   const from = dragItem.current;
   if (!from) return;
 
@@ -97,24 +100,53 @@ export default function KanbanRe({
 
   // Insere na coluna de destino na posição correta
   const newTargetCards = [...targetCol.cards.filter(c => c.id !== movedCard.id)];
-  newTargetCards.splice(toIndex, 0, movedCard); // aqui é a mágica
+  const insertIndex = toIndex !== null ? toIndex : newTargetCards.length;
+  newTargetCards.splice(insertIndex, 0, movedCard);
 
-  // Atualiza posições
+  // Atualiza posições localmente
   const updatedSource = newSourceCards.map((c, i) => ({ ...c, position: i }));
   const updatedTarget = newTargetCards.map((c, i) => ({ ...c, position: i }));
 
-  // Atualiza localmente
   setColumns(prev => ({
     ...prev,
     [from.colId]: { ...sourceCol, cards: updatedSource },
     [targetColId]: { ...targetCol, cards: updatedTarget }
   }));
 
-  // Salva todas posições
-  [...updatedSource, ...updatedTarget].forEach(card => saveCardMovement(card));
+  // Salva apenas o card que foi movido
+  const updatedMovedCard = { ...movedCard, step_id: targetColId, position: insertIndex };
+  saveCardMovement(updatedMovedCard);
 
   dragItem.current = null;
 }
+
+
+async function saveStepTitle(stepId, newTitle) {
+  try {
+    // Atualiza localmente
+    setColumns(prev => ({
+      ...prev,
+      [stepId]: {
+        ...prev[stepId],
+        title: newTitle,
+        name: newTitle, // caso você use 'name' no render
+      },
+    }));
+
+    // Atualiza no banco
+    const { data, error } = await supabase
+      .from("kanban_steps") // sua tabela de steps
+      .update({ name: newTitle })
+      .eq("id", stepId)
+      .select();
+
+    if (error) console.log("Erro ao atualizar step:", error);
+    else console.log("Step atualizado:", data);
+  } catch (err) {
+    console.log("Erro inesperado:", err);
+  }
+}
+
 
 
   // ==========================
@@ -163,6 +195,7 @@ export default function KanbanRe({
             style={{ backgroundColor: `${step.color}60` }}
             onDragOver={e => e.preventDefault()}
             onDrop={() => handleDrop(step.id)}
+
           >
             {/* HEADER */}
             <div className="flex justify-between items-center p-5 shadow-md border border-gray-300 rounded-sm z-20"
@@ -173,17 +206,26 @@ export default function KanbanRe({
                     type="text"
                     value={editTitleValue}
                     onChange={e => setEditTitleValue(e.target.value)}
-                    onBlur={() => { step.title = editTitleValue; setEditingTitle(null); }}
-                    onKeyDown={e => { if (e.key === "Enter") { step.title = editTitleValue; setEditingTitle(null); } }}
+                    onBlur={() => {
+                      setEditingTitle(null);
+                      saveStepTitle(step.id, editTitleValue);
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        setEditingTitle(null);
+                        saveStepTitle(step.id, editTitleValue);
+                      }
+                    }}
                     autoFocus
                     className="font-bold border-b border-gray-300 focus:outline-none focus:border-purple-500 bg-transparent w-full"
                   />
+
                 ) : (
                   <h2
                     className="font-bold cursor-pointer hover:underline"
                     onClick={() => { setEditingTitle(step.id); setEditTitleValue(step.title); }}
                   >
-                    {step.name}
+                    {column.name}
                   </h2>
                 )}
               </div>
@@ -203,7 +245,6 @@ export default function KanbanRe({
                 ))}
               </div>
             </div>
-
             {/* Botão Novo Card */}
             {canCreate && (
               <SplitButton
@@ -214,7 +255,9 @@ export default function KanbanRe({
                     setOnlyView(false);
                     if(isOwner) setCanEdit(true)
                 }}
-                options={usuarioComSubmodules?.submodules?.map(sub => ({
+                options={usuarioComSubmodules?.submodules
+                  ?.filter((sub)=> sub.name != 'sem nome')
+                  ?.map(sub => ({
                   label: sub.name,
                   submodule: sub
                 }))}
@@ -276,7 +319,6 @@ export default function KanbanRe({
                     canView={canView}
                     canEdit={canEdit}
                     canDelete={canDelete}
-
                     openMenuCardId={openMenuCardId}
                     setOpenMenuCardId={setOpenMenuCardId}
                     selectSubmoduleButton={selectSubmoduleButton}
@@ -285,6 +327,9 @@ export default function KanbanRe({
                     setOnlyView={setOnlyView}
                     handleReloadKanban={handleReloadKanban}
                     supabase={supabase}
+                    usuarioComSubmodules={usuarioComSubmodules}
+                    fields={fields}
+                    subFields={subFields}
                     />
                 </div>
               ))}

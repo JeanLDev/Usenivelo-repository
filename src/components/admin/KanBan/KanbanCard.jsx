@@ -2,6 +2,7 @@ import { MoreVertical, User } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import FloatingMenuButton from "./components/floatingMenuButton";
 
 export default function KanbanCard({
   id, // ⚠️ obrigatoriamente passado pelo Kanban
@@ -18,11 +19,15 @@ export default function KanbanCard({
   openMenuCardId,
   setOpenMenuCardId,
   selectSubmoduleButton,
+  record,
   setRecord,
   setCanEdit,
   setOnlyView,
   handleReloadKanban,
   supabase,
+  usuarioComSubmodules,
+  fields,
+  subFields
 }) {
   const d = card.data || {};
   const title = d.title;
@@ -71,10 +76,6 @@ export default function KanbanCard({
 
   return (
     <div
-      ref={(el) => {
-        setNodeRef(el);
-        cardRef.current = el;
-      }}
       style={style}
       {...attributes}
       {...listeners}
@@ -117,7 +118,7 @@ export default function KanbanCard({
         {/* Menu */}
         {openMenuCardId === card.id && (
           <div
-            className="absolute right-0 mt-10 w-28 bg-white border border-gray-200 shadow-lg rounded-md z-50"
+            className="absolute right-0 mt-24 w-32 bg-white border border-gray-200 shadow-lg rounded-md z-50"
             onClick={(e) => e.stopPropagation()}
           >
             {canView && (
@@ -136,22 +137,23 @@ export default function KanbanCard({
             )}
 
             {canEdit && (
-              <button
-                className="text-left w-full px-3 py-2 hover:bg-gray-100"
-                onClick={() => {
-                  const sub =
-                    submodules.find((i) => i.id === card.submodule_id) ||
-                    { id: null, name: "Novo Submódulo" };
-
-                  selectSubmoduleButton(sub, step.id);
-                  setRecord({ data: card.data, ...card });
-                  setCanEdit(true);
-                  setOpenMenuCardId(null);
-                  setOnlyView(false);
-                }}
-              >
-                Editar
-              </button>
+              <div className="relative">
+                <button
+                  className="text-left w-full px-3 py-2 hover:bg-gray-100"
+                  onClick={() => {
+                    const sub =
+                      submodules.find((i) => i.id === card.submodule_id) ||
+                      { id: null, name: "Novo Submódulo" };
+                    selectSubmoduleButton(sub, step.id);
+                    setRecord({ data: card.data, ...card });
+                    setCanEdit(true);
+                    setOpenMenuCardId(null);
+                    setOnlyView(false);   
+                  }}
+                >
+                  Editar
+                </button>
+              </div>
             )}
 
             {canDelete && (

@@ -1,0 +1,65 @@
+{
+  "name": "Chat React → n8n AI Agent",
+  "nodes": [
+    {
+      "id": "Webhook_Entrada",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [300, 300],
+      "parameters": {
+        "path": "chat-react",
+        "httpMethod": "POST",
+        "responseMode": "onLastNode",
+        "options": {
+          "responseContentType": "application/json"
+        }
+      }
+    },
+    {
+      "id": "AI_Agent",
+      "name": "AI Agent",
+      "type": "n8n-nodes-base.aiAgent",
+      "typeVersion": 1,
+      "position": [600, 300],
+      "parameters": {
+        "source": "defineBelow",
+        "prompt": "User says: {{$json.message}}"
+      }
+    },
+    {
+      "id": "Responder",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.webhookRespond",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "parameters": {
+        "responseBody": "={{ { \"reply\": $json.reply } }}"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook_Entrada": {
+      "main": [
+        [
+          {
+            "node": "AI_Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI_Agent": {
+      "main": [
+        [
+          {
+            "node": "Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

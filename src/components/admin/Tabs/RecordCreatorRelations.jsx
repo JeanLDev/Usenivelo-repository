@@ -252,7 +252,9 @@ export function RecordRelationField({
 
             {openRelations[item.recordId] && (
               <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
-                {Object.entries(item.data || {}).map(([k, v]) => {
+                {Object.entries(item.data || {})
+                .filter(([k, v]) => v !== 0 && v !== "0" && !k.startsWith("__"))
+                .map(([k, v]) => {
                   if (k.startsWith("__")) return null;
 
                   return (

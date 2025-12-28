@@ -18,6 +18,7 @@ import ExtraFields from "./components/LocalFieldsEditor";
 
 // --- Componente principal --- //
 export default function KanbanCardModal({ fields = [], subFields = [], submodule_id , record=[],fetchRecords, onClose, isOpen,page, shared, creating, limiteAtingido , submoduleName,kanban,created_by,position,step_id, handleReloadKanban,onlyView, usuarios,companies,canEdit}) {
+
     const { toast } = useToast();
     const LOCAL_CACHE_KEY = `formulaCache_${submodule_id || "default"}`;
     const ENABLE_KEY = `formulaCacheEnabled_${submodule_id || "default"}`;
@@ -219,27 +220,29 @@ function calculateField(field, recordData) {
   };
 
   // Campos a ignorar
-    const ignoreFields = ["title", "checklist", "labels", "comments", "description"];
+   const ignoreFields = ["title", "checklist", "labels", "comments", "description","submodules","submodule_id","__submoduleName"];
 
-    // Se fields estiver vazio, pegar do record.data
-    const baseFields = fields.length > 0 
-      ? fields 
-      : Object.keys(record?.data || {})
-          .filter((key) => !ignoreFields.includes(key)) // ignora os campos indesejados
-          .map((key, index) => ({
-            id: `auto-${index}`,   // gerar um id temporário
-            name: key,
-            order: index,
-            field_type: typeof record.data[key] === "number" ? "number" : "text", // inferir tipo básico
-          }));
+// 1️⃣ Pega os nomes dos fields já existentes
+const fieldNames = fields.map(f => f.name);
 
+// 2️⃣ Pega os campos do record.data que ainda não estão em fields
+const extraFields = Object.keys(record?.data || {})
+  .filter(key => !fieldNames.includes(key) && !ignoreFields.includes(key)) // ignora duplicados e campos opcionais
+  .map((key, index) => ({
+    id: `auto-${index}`,
+    name: key,
+    order: fields.length + index,
+    field_type: typeof record.data[key] === "number" ? "number" : "text", // inferir tipo básico
+  }));
+
+// 3️⃣ Combina fields existentes com os extras
+  const baseFields = [...fields, ...extraFields];
     const sortedFields = [...baseFields].sort((a, b) => {
       if (a.order == null && b.order == null) return 0;
       if (a.order == null) return 1;
       if (b.order == null) return -1;
       return a.order - b.order;
     });
-
 
 
   // Inicializa valores padrão
@@ -274,6 +277,7 @@ function calculateField(field, recordData) {
   fetchFormConfig()
   setLoading(false)
   }, []);
+  
 
   // Recalcula fórmulas dinamicamente e salva valores no cache (fórmulas + subfields)
   useEffect(() => {
@@ -630,14 +634,16 @@ const handleDescriptionChange = (value) => {
       };
 
       if(record.record_id) {
-        const { error } = await supabase
+        const {data, error } = await supabase
           .from("submodule_records")
           .update(updateData)
-          .eq("id", kanban ? record.record_id : record.id);
+          .eq("id", kanban ? record.record_id : record.id)
+          .select()
           
         if (error) throw error;
-      }
 
+      }
+      
       if (kanban) {
         const kanbanUpdate = {
           ...updateData,
@@ -777,7 +783,7 @@ const handleDescriptionChange = (value) => {
       :
       !limiteAtingido ? (
      <div
-  className="fixed inset-0 z-100 flex items-center justify-center bg-black/40 backdrop-blur-sm font-sans"
+  className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm font-sans"
   onClick={onClose}
 >
   <div
@@ -836,11 +842,12 @@ const handleDescriptionChange = (value) => {
         </div>
       </div>
       
-      {!submodule_id && <ExtraFields
+      
+     {!onlyView && 
+     <ExtraFields
       formData={formData}
       setFormData={setFormData}
       renderInput={renderInput}
-      onlyView={onlyView}
       />}
       
       

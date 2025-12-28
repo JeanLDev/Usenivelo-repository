@@ -38,7 +38,7 @@ export default function ExtraFields({ formData, setFormData, renderInput, onlyVi
     };
 
   return (
-    <div>
+    <div >
         {/* Lista de campos extras */}
         <div className="space-y-2 mt-2 mb-3">
             {extraFields.map((field) => (

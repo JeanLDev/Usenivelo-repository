@@ -53,7 +53,7 @@ export default function CardRastreio({ card, etapa, user, onAddComment }) {
           </p>
         </div>
 
-        <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+        <span className="px-2.5 py-1 rounded-full text-sm font-sans font-bold bg-primary text-white border border-gray-300">
           {etapa?.name ?? "Sem etapa"}
         </span>
       </div>
@@ -66,6 +66,7 @@ export default function CardRastreio({ card, etapa, user, onAddComment }) {
     .filter(([key, value]) => 
       key !== "title" &&
       key !== "submodule_id" &&
+      key !== "submodules" &&
       key !== "comments" &&
       key !== "labels" &&
       !key.startsWith("_") &&

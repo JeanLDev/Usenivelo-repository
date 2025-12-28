@@ -19,6 +19,7 @@ import { useDashboard } from "@/contexts/DashboardContext";
 import Joyride from "react-joyride";
 import EmailConfirmationAlert from "./EmailConfirmationAlert";
 import ModernSidebarLayout from "./layouts/ModernSidebarLayout";
+import Chat from "./AI/Chat";
 
 const DashboardLayout = ({ children }) => {
   const { sidebarKey, refreshSidebar } = useDashboard();
@@ -60,7 +61,6 @@ const DashboardLayout = ({ children }) => {
     // 1️⃣ Usuário logado
     const { data: authData } = await supabase.auth.getUser();
     const user = authData?.user;
-    console.log(authData)
     if (!user) return;
 
     const { data: dbUsuarios } = await supabase
@@ -252,6 +252,11 @@ const DashboardLayout = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+
+      <div className="fixed bottom-0 right-0 z-20 bg-purple-300 h-full">
+        <Chat user={user}/>
+      </div>
+
       {/* SIDEBAR */}
       <ModernSidebarLayout
         company={company}
